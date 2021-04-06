@@ -1,4 +1,4 @@
-# Midterm Project for CSC 381: Recommender Systems Research
+# Final Project for CSC 381: Recommender Systems Research
 
 ## Authors
 - Joseph Brock '22
