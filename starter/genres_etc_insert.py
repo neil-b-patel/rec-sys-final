@@ -3,7 +3,7 @@ Create content-based recommenders: Feature Encoding, TF-IDF/CosineSim
        using item/genre feature data
        
 
-Programmer name: << Your name here!!>>
+Programmer name: Joseph Brock, Jake Carver, Neil Patel, Annabel Winters-McCabe
 
 Collaborator/Author: Carlos Seminario
 
@@ -70,12 +70,12 @@ def from_file_to_2D(path, genrefile, itemfile):
     # Get movie genre from the genre file, place into genre dictionary indexed by genre index
     genres={} # key is genre index, value is the genre string
     
+    # construct generes dictionary
     try:
         with open (path + '/' + genrefile, encoding='iso8859') as myotherfile: 
             # this encoding is required for some datasets: encoding='iso8859'
             id = 0
             for line in myotherfile:
-                print(line)
                 genre=line.split('|')[0].strip()
                 if genre == '':
                     continue
@@ -491,7 +491,12 @@ def main():
                 print()
                 print('cosine sim matrix')
                 print(cosim_matrix)
-                 
+                
+                graphArray = []
+                for i in range(len(cosim_matrix)):
+                    for j in range(i):
+                        if cosim_matrix[i][j] != 0 and cosim_matrix[i][j] != 1:
+                            graphArray.append(cosim_matrix[i][j])
                 '''
                 <class 'numpy.ndarray'> 
                 
@@ -504,6 +509,7 @@ def main():
                 '''
                 
                 #print and plot histogram of similarites
+                plt.hist(graphArray, 10)
 
 
             elif len(prefs) > 10:
@@ -531,14 +537,10 @@ def main():
                 graphArray = []
                 for i in range(len(cosim_matrix)):
                     for j in range(i):
-                    
                         if cosim_matrix[i][j] != 0 and cosim_matrix[i][j] != 1:
                             graphArray.append(cosim_matrix[i][j])
-    
                 
-                #.3,.5,.7
-                
-                
+                #Similarity Thresholds we decided: (>0.3, >0.5, >0.7)
                 '''
                 <class 'numpy.ndarray'> 1682
                 
@@ -551,7 +553,6 @@ def main():
                 '''
                 
                 #print and plot histogram of similarites)
-                
                 plt.hist(graphArray, 10)
                 
             else:
