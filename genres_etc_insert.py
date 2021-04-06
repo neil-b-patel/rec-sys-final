@@ -510,6 +510,7 @@ def main():
                 
                 #print and plot histogram of similarites
                 plt.hist(graphArray, 10)
+                # plt.show()
 
 
             elif len(prefs) > 10:
@@ -554,6 +555,7 @@ def main():
                 
                 #print and plot histogram of similarites)
                 plt.hist(graphArray, 10)
+                # plt.show()
                 
             else:
                 print ('Empty dictionary, read in some data!')
