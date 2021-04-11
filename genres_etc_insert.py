@@ -318,7 +318,7 @@ def movie_to_ID(movies):
     
     pass
 
-def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold):
+def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
     ''' 
     Calculates recommendations for a given user 
 
@@ -337,10 +337,29 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold):
     toRec = []
     recs = []
 
-    user = user.capitalize()
-    userRatings = prefs[user]
-
+    #user = user.capitalize()
+    userRatings = prefs[str(user)]
+    print(userRatings)
+    
+    
+    for i in range(1, len(movies)+1):
+        if movies[str(i)] in userRatings: continue
+        top = 0
+        bottom = 0
+        count = 0
+        for j in range(1, len(movies)+1):
+            if movies[str(j)] not in userRatings: continue
+            if i == j: continue
+            top += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
+            bottom +=cosim_matrix[i-1][j-1]
+            count += 1
+        
+        recs.append([movies[str(i)],top/bottom])
+        
+    print(sorted(recs,key=lambda x: x[1]))
+    
     # determine list of items not yet rated by the given user
+    '''
     for other in prefs:
         for item in prefs[other]:
             if item not in userRatings and item not in toRec:
@@ -351,6 +370,8 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold):
     for item in toRec:
         sim_rating_product = 0
         similarities_sum = 0
+        
+    
 
         # find neighbor items in the cosim_matrix that are above the sim_threshold
 
@@ -372,6 +393,7 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold):
 
     # Sort the list of tuples by highest to lowest ratings
     recs = sorted(recs, key=lambda x: x[1], reverse=True)
+    '''
 
 def get_FE_recommendations(prefs, features, movie_title_to_id, user):
     ''' 
@@ -540,7 +562,7 @@ def main():
                 #print and plot histogram of similarites
                 plt.hist(graphArray, 10)
                 # plt.show()
-
+                get_TFIDF_recommendations(prefs, cosim_matrix, 456, .2, movies)
 
             elif len(prefs) > 10:
                 print('ml-100k')   
@@ -585,6 +607,7 @@ def main():
                 #print and plot histogram of similarites)
                 plt.hist(graphArray, 10)
                 # plt.show()
+                get_TFIDF_recommendations(prefs, cosim_matrix, 456, .2, movies)
                 
             else:
                 print ('Empty dictionary, read in some data!')
