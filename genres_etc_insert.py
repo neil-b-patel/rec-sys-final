@@ -362,7 +362,6 @@ def get_FE_recommendations(prefs, features, movie_title_to_id,movies, user):
            An empty list is returned when no recommendations have been calc'd.
 
     '''
-    print("STARTING")
     #generate set of total possible ids
     total_ids = list(range(0, len(features)))
     total_set= set(total_ids)
@@ -381,18 +380,13 @@ def get_FE_recommendations(prefs, features, movie_title_to_id,movies, user):
     #set unrated rows to 0s
     for id in unrated_ids:
         feature_preference[id]*=0
-    #print(features)
-    print(feature_preference)
     #take column wise sum, overall sum, and normalized vector
     col_sums = np.sum(feature_preference, axis = 0)
-    print(col_sums)
     overall_sum = np.sum(feature_preference)
-    print(overall_sum)
     norm_vector = col_sums/overall_sum
-    print(norm_vector)
-    #print("NUM UNRATED :"+str(len(unrated_ids)))
-    #for each unrated item
+
     recs = []
+    #for each unrated item
     for id in unrated_ids:
         #multiply features row for item by normalized vector
         norm_weight = features[id]*norm_vector
@@ -408,12 +402,12 @@ def get_FE_recommendations(prefs, features, movie_title_to_id,movies, user):
         avgs = col_sums/nonzero_count
         #remove irrelevant features
         avgs *= features[id].astype('float64')
-        print(avgs)
         weight_avg = avgs*norm_weight
-        print(weight_avg)
         final_rec = np.nansum(weight_avg)
         recs.append((final_rec, movies[str(id+1)]))
+        #sort high to low
         recs = sorted(recs, reverse = True)
+        #only return 10
         if len(recs) > 10:
             recs = recs[:10]
     return recs
@@ -629,11 +623,15 @@ def main():
             if len(prefs) > 0 and len(prefs) <= 10: # critics
                 print('critics')
                 userID = input('Enter username (for critics) or userid (for ml-100k) or return to quit: ')
-
+                movie_title_to_id = movie_to_ID(movies)
+                recs = get_FE_recommendations(prefs, features, movie_title_to_id, movies, userID)
+                print(recs)
             elif len(prefs) > 10:
                 print('ml-100k')
                 userID = input('Enter username (for critics) or userid (for ml-100k) or return to quit: ')
-
+                movie_title_to_id = movie_to_ID(movies)
+                recs = get_FE_recommendations(prefs, features, movie_title_to_id, movies, userID)
+                print(recs)
             else:
                 print ('Empty dictionary, read in some data!')
                 print()
