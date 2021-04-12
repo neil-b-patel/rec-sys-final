@@ -350,11 +350,13 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
         for j in range(1, len(movies)+1):
             if movies[str(j)] not in userRatings: continue
             if i == j: continue
+            if cosim_matrix[i-1][j-1] < sim_threshold: continue
             top += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
             bottom +=cosim_matrix[i-1][j-1]
             count += 1
-        
-        recs.append([movies[str(i)],top/bottom])
+        #both?
+        if bottom > 0 and top > 0:
+            recs.append([movies[str(i)],top/bottom])
         
     print(sorted(recs,key=lambda x: x[1]))
     
@@ -562,7 +564,7 @@ def main():
                 #print and plot histogram of similarites
                 plt.hist(graphArray, 10)
                 # plt.show()
-                get_TFIDF_recommendations(prefs, cosim_matrix, 456, .2, movies)
+                get_TFIDF_recommendations(prefs, cosim_matrix, 'Michael', 0, movies)
 
             elif len(prefs) > 10:
                 print('ml-100k')   
@@ -607,7 +609,7 @@ def main():
                 #print and plot histogram of similarites)
                 plt.hist(graphArray, 10)
                 # plt.show()
-                get_TFIDF_recommendations(prefs, cosim_matrix, 456, .2, movies)
+                get_TFIDF_recommendations(prefs, cosim_matrix, 1, .7, movies)
                 
             else:
                 print ('Empty dictionary, read in some data!')
