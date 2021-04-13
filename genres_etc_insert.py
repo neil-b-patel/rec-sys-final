@@ -26,17 +26,19 @@ from matplotlib import pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-SIG_THRESHOLDS = [0, 0.3, 0.5, 0.7] # accept all positive similarities > [i] for TF-IDF/ConsineSim Recommender
- 
+# accept all positive similarities > [i] for TF-IDF/ConsineSim Recommender
+SIG_THRESHOLDS = [0, 0.3, 0.5, 0.7]
+
+
 def from_file_to_2D(path, genrefile, itemfile):
     ''' 
     Load feature matrix from specified file
-    
+
     Parameters:
         -- path: directory path to datafile and itemfile
         -- genrefile: delimited file that maps genre to genre index
         -- itemfile: delimited file that maps itemid to item name and genre
-    
+
     Returns:
         -- movies: a dictionary containing movie titles (value) for a given movieID (key)
         -- genres: dictionary, key is genre, value is index into row of features array
@@ -46,64 +48,64 @@ def from_file_to_2D(path, genrefile, itemfile):
     '''
 
     # Get movie titles, place into movies dictionary indexed by itemID
-    movies={}
+    movies = {}
     try:
-        with open (path + '/' + itemfile, encoding='iso8859') as myfile:
+        with open(path + '/' + itemfile, encoding='iso8859') as myfile:
             # this encoding is required for some datasets: encoding='iso8859'
             for line in myfile:
-                (id,title)=line.split('|')[0:2]
-                movies[id]=title.strip()
+                (id, title) = line.split('|')[0:2]
+                movies[id] = title.strip()
 
     # Error processing
     except UnicodeDecodeError as ex:
-        print (ex)
-        print (len(movies), line, id, title)
+        print(ex)
+        print(len(movies), line, id, title)
         return {}
     except ValueError as ex:
-        print ('ValueError', ex)
-        print (len(movies), line, id, title)
+        print('ValueError', ex)
+        print(len(movies), line, id, title)
     except Exception as ex:
-        print (ex)
-        print (len(movies))
+        print(ex)
+        print(len(movies))
         return {}
 
     ##
     # Get movie genre from the genre file, place into genre dictionary indexed by genre index
-    genres={} # key is genre index, value is the genre string
+    genres = {}  # key is genre index, value is the genre string
 
     # construct generes dictionary
     try:
-        with open (path + '/' + genrefile, encoding='iso8859') as myotherfile:
+        with open(path + '/' + genrefile, encoding='iso8859') as myotherfile:
             # this encoding is required for some datasets: encoding='iso8859'
             id = 0
             for line in myotherfile:
-                genre=line.split('|')[0].strip()
+                genre = line.split('|')[0].strip()
                 if genre == '':
                     continue
                 genres[id] = genre
-                id+=1
+                id += 1
 
     # Error processing
     except UnicodeDecodeError as ex:
-        print (ex)
-        print (len(movies), line, id, title)
+        print(ex)
+        print(len(movies), line, id, title)
         return {}
     except ValueError as ex:
-        print ('ValueError', ex)
-        print (len(movies), line, id, title)
+        print('ValueError', ex)
+        print(len(movies), line, id, title)
     except Exception as ex:
-        print (ex)
-        print (len(movies))
+        print(ex)
+        print(len(movies))
         return {}
-     
+
     print(genres)
-    
+
     # Load data into a nested 2D list
     features = []
     start_feature_index = 5
     try:
-        for line in open(path+'/'+ itemfile, encoding='iso8859'):
-            #print(line, line.split('|')) #debug
+        for line in open(path+'/' + itemfile, encoding='iso8859'):
+            # print(line, line.split('|')) #debug
             fields = line.split('|')[start_feature_index:]
             row = []
             for feature in fields:
@@ -111,77 +113,80 @@ def from_file_to_2D(path, genrefile, itemfile):
             features.append(row)
         features = np.array(features)
     except Exception as ex:
-        print (ex)
-        print ('Proceeding with len(features)', len(features))
-        #return {}
-    #return features matrix
+        print(ex)
+        print('Proceeding with len(features)', len(features))
+        # return {}
+    # return features matrix
     return movies, genres, features
+
 
 def from_file_to_dict(path, datafile, itemfile):
     ''' 
     Loads user-item matrix from specified file 
-    
+
     Parameters:
         -- path: directory path to datafile and itemfile
         -- datafile: delimited file containing userid, itemid, rating
         -- itemfile: delimited file that maps itemid to item name
-        
+
     Returns:
         -- prefs: a nested dictionary containing item ratings (value) for each user (key)
     '''
 
     # Get movie titles, place into movies dictionary indexed by itemID
-    movies={}
+    movies = {}
     try:
-        with open (path + '/' + itemfile, encoding='iso8859') as myfile:
+        with open(path + '/' + itemfile, encoding='iso8859') as myfile:
             # this encoding is required for some datasets: encoding='iso8859'
             for line in myfile:
-                (id,title)=line.split('|')[0:2]
-                movies[id]=title.strip()
+                (id, title) = line.split('|')[0:2]
+                movies[id] = title.strip()
 
     # Error processing
     except UnicodeDecodeError as ex:
-        print (ex)
-        print (len(movies), line, id, title)
+        print(ex)
+        print(len(movies), line, id, title)
         return {}
     except ValueError as ex:
-        print ('ValueError', ex)
-        print (len(movies), line, id, title)
+        print('ValueError', ex)
+        print(len(movies), line, id, title)
     except Exception as ex:
-        print (ex)
-        print (len(movies))
+        print(ex)
+        print(len(movies))
         return {}
 
     # Load data into a nested dictionary
-    prefs={}
-    for line in open(path+'/'+ datafile):
-        #print(line, line.split('\t')) #debug
-        (user,movieid,rating,ts)=line.split('\t')
-        user = user.strip() # remove spaces
-        movieid = movieid.strip() # remove spaces
-        prefs.setdefault(user,{}) # make it a nested dicitonary
-        prefs[user][movies[movieid]]=float(rating)
+    prefs = {}
+    for line in open(path+'/' + datafile):
+        # print(line, line.split('\t')) #debug
+        (user, movieid, rating, ts) = line.split('\t')
+        user = user.strip()  # remove spaces
+        movieid = movieid.strip()  # remove spaces
+        prefs.setdefault(user, {})  # make it a nested dicitonary
+        prefs[user][movies[movieid]] = float(rating)
 
-    #return a dictionary of preferences
+    # return a dictionary of preferences
     return prefs
 
+
 def transformPrefs(prefs):
-    result={}
+    result = {}
     for person in prefs:
         for item in prefs[person]:
-            result.setdefault(item,{})
+            result.setdefault(item, {})
 
             # Flip item and person
-            result[item][person]=prefs[person][item]
+            result[item][person] = prefs[person][item]
     return result
+
 
 def prefs_to_2D_list(prefs):
     '''
     Converts prefs dictionary into 2D list used as input for the MF class
-    
+
     Parameters: 
         -- prefs: user-item matrix as a dicitonary (dictionary)
-        
+
     Returns: 
         -- ui_matrix: (list) contains user-item matrix as a 2D list   
     '''
@@ -190,19 +195,19 @@ def prefs_to_2D_list(prefs):
 
     user_keys_list = list(prefs.keys())
     num_users = len(user_keys_list)
-    #print (len(user_keys_list), user_keys_list[:10]) # debug
+    # print (len(user_keys_list), user_keys_list[:10]) # debug
 
-    itemPrefs = transformPrefs(prefs) # traspose the prefs u-i matrix
+    itemPrefs = transformPrefs(prefs)  # traspose the prefs u-i matrix
     item_keys_list = list(itemPrefs.keys())
     num_items = len(item_keys_list)
-    #print (len(item_keys_list), item_keys_list[:10]) # debug
+    # print (len(item_keys_list), item_keys_list[:10]) # debug
 
-    sorted_list = True # <== set manually to test how this affects results
+    sorted_list = True  # <== set manually to test how this affects results
 
     if sorted_list == True:
         user_keys_list.sort()
         item_keys_list.sort()
-        print ('\nsorted_list =', sorted_list)
+        print('\nsorted_list =', sorted_list)
 
     # initialize a 2D matrix as a list of zeroes with
     #     num users (height) and num items (width)
@@ -223,33 +228,37 @@ def prefs_to_2D_list(prefs):
 
             try:
                 # make it a nested list
-                ui_matrix[user_idx][movieid_idx] = prefs [user][item]
+                ui_matrix[user_idx][movieid_idx] = prefs[user][item]
             except Exception as ex:
-                print (ex)
-                print (user_idx, movieid_idx)
+                print(ex)
+                print(user_idx, movieid_idx)
 
     # return 2D user-item matrix
     return ui_matrix
+
 
 def to_array(prefs):
     ''' Converts prefs dictionary into 2D list '''
 
     R = prefs_to_2D_list(prefs)
     R = np.array(R)
-    print ('to_array -- height: %d, width: %d' % (len(R), len(R[0]) ) )
+    print('to_array -- height: %d, width: %d' % (len(R), len(R[0])))
     return R
+
 
 def to_string(features):
     ''' Converts features np.array into list of feature strings '''
-    
+
     feature_str = []
     for i in range(len(features)):
         row = ''
-        for j in range(len (features[0])):
+        for j in range(len(features[0])):
             row += (str(features[i][j]))
         feature_str.append(row)
-    print ('to_string -- height: %d, width: %d' % (len(feature_str), len(feature_str[0]) ) )
+    print('to_string -- height: %d, width: %d' %
+          (len(feature_str), len(feature_str[0])))
     return feature_str
+
 
 def to_docs(features_str, genres):
     ''' Converts feature strings to a list of doc strings for TFIDF '''
@@ -259,19 +268,22 @@ def to_docs(features_str, genres):
         row = ''
         for i in range(len(doc_str)):
             if doc_str[i] == '1':
-                row += (genres[i] + ' ') # map the indices to the actual genre string
-        feature_docs.append(row.strip()) # and remove that pesky space at the end
+                # map the indices to the actual genre string
+                row += (genres[i] + ' ')
+        # and remove that pesky space at the end
+        feature_docs.append(row.strip())
 
-    print ('to_docs -- height: %d, width: varies' % (len(feature_docs) ) )
+    print('to_docs -- height: %d, width: varies' % (len(feature_docs)))
     return feature_docs
+
 
 def cosine_sim(docs):
     ''' 
     Performs cosine sim calcs on features list, aka docs in TF-IDF world
-    
+
     Parameters:
         -- docs: list of item features
-     
+
     Returns:   
         -- list containing cosim_matrix: item_feature-item_feature cosine similarity matrix 
     '''
@@ -282,19 +294,19 @@ def cosine_sim(docs):
     print('Documents:', docs[:10])
 
     print()
-    print ('## Count and Transform ##')
+    print('## Count and Transform ##')
     print()
 
     # choose one of these invocations
-    tfidf_vectorizer = TfidfVectorizer() # orig
+    tfidf_vectorizer = TfidfVectorizer()  # orig
 
     tfidf_matrix = tfidf_vectorizer.fit_transform(docs)
-    #print (tfidf_matrix.shape, type(tfidf_matrix)) # debug
+    # print (tfidf_matrix.shape, type(tfidf_matrix)) # debug
 
     print()
     print('Document similarity matrix:')
     cosim_matrix = cosine_similarity(tfidf_matrix[0:], tfidf_matrix)
-    print (type(cosim_matrix), len(cosim_matrix))
+    print(type(cosim_matrix), len(cosim_matrix))
     print()
     print(cosim_matrix[0:6])
     print()
@@ -314,57 +326,63 @@ def cosine_sim(docs):
 
     return cosim_matrix
 
+
 def movie_to_ID(movies):
     ''' Converts movies mapping from "id to title" to "title to id" '''
-    
+
     movie_title_to_id = {}
     for id in movies.keys():
         movie_title_to_id[movies[id]] = id
     return movie_title_to_id
 
+
 def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
     ''' 
     Calculates recommendations for a given user 
-    
+
     Parameters:
         -- prefs: dictionary containing user-item matrix
         -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix 
         -- user: string containing name of user requesting recommendation       
         -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
         -- movies: 
-        
+
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples, 
            each tuple contains (predicted rating, item name).
            List is sorted, high to low, by predicted rating.
            An empty list is returned when no recommendations have been calc'd.
     '''
-    
+
     toRec = []
     recs = []
 
     #user = user.capitalize()
     userRatings = prefs[str(user)]
-    print(userRatings)
-    
+    # print(userRatings)
+
     for i in range(1, len(movies)+1):
-        if movies[str(i)] in userRatings: continue
+        if movies[str(i)] in userRatings:
+            continue
         top = 0
         bottom = 0
         count = 0
-        for j in range(1, len(movies)+1):
-            if movies[str(j)] not in userRatings: continue
-            if i == j: continue
-            if cosim_matrix[i-1][j-1] < sim_threshold: continue
+        for j in range(1, len(movies) + 1):
+            if movies[str(j)] not in userRatings:
+                continue
+            if i == j:
+                continue
+            if cosim_matrix[i-1][j-1] < sim_threshold:
+                continue
             top += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
-            bottom +=cosim_matrix[i-1][j-1]
+            bottom += cosim_matrix[i-1][j-1]
             count += 1
-        #both?
+        # both?
         if bottom > 0 and top > 0:
-            recs.append([movies[str(i)],top/bottom])
-        
-    print(sorted(recs,key=lambda x: x[1]))
-    
+            recs.append([movies[str(i)], top/bottom])
+
+    print(sorted(recs, key=lambda x: x[1], reverse=True)[:10])
+
     # determine list of items not yet rated by the given user
     '''
     for other in prefs:
@@ -402,7 +420,8 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
     recs = sorted(recs, key=lambda x: x[1], reverse=True)
     '''
 
-def get_FE_recommendations(prefs, features, movie_title_to_id, user):
+
+def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
     ''' 
     Calculates recommendations for a given user 
 
@@ -411,8 +430,9 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, user):
         -- features: an np.array whose height is based on number of items
                      and width equals the number of unique features (e.g., genre)
         -- movie_title_to_id: dictionary that maps movie title to movieid
+        -- movies: dictionary that maps movieid to movie title
         -- user: string containing name of user requesting recommendation
- 
+
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples, 
            each tuple contains (predicted rating, item name).
@@ -420,63 +440,64 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, user):
            An empty list is returned when no recommendations have been calc'd.
 
     '''
-    
-    #generate set of total possible ids
+
+    # generate set of total possible ids
     total_ids = list(range(0, len(features)))
-    total_set= set(total_ids)
-    #print(total_set)
+    total_set = set(total_ids)
+    # print(total_set)
     feature_preference = np.copy(features)
-    #transform features into the feature_preference matrix
+    # transform features into the feature_preference matrix
     feature_preference = feature_preference.astype('float64')
     rated = set()
     for movie in prefs[user]:
         id = (int)(movie_title_to_id[movie])-1
-        feature_preference[id]*= prefs[user][movie]
+        feature_preference[id] *= prefs[user][movie]
         rated.add(id)
-    #set subtraction to pull out unrated items
+    # set subtraction to pull out unrated items
     unrated_ids = total_set.difference(rated)
 
-    #set unrated rows to 0s
+    # set unrated rows to 0s
     for id in unrated_ids:
-        feature_preference[id]*=0
-    #take column wise sum, overall sum, and normalized vector
-    col_sums = np.sum(feature_preference, axis = 0)
+        feature_preference[id] *= 0
+    # take column wise sum, overall sum, and normalized vector
+    col_sums = np.sum(feature_preference, axis=0)
     overall_sum = np.sum(feature_preference)
     norm_vector = col_sums/overall_sum
 
     recs = []
-    #for each unrated item
+    # for each unrated item
     for id in unrated_ids:
-        #multiply features row for item by normalized vector
+        # multiply features row for item by normalized vector
         norm_weight = features[id]*norm_vector
         norm_sum = np.sum(norm_weight)
-        #avoid divide by 0 error
+        # avoid divide by 0 error
         if norm_sum == 0:
             continue
         norm_weight = norm_weight/norm_sum
-        #get nonzero count
-        nonzero_count = np.count_nonzero(feature_preference, axis =0)
-        #get vector of averages
-        #pass over divide by 0
+        # get nonzero count
+        nonzero_count = np.count_nonzero(feature_preference, axis=0)
+        # get vector of averages
+        # pass over divide by 0
         avgs = col_sums/nonzero_count
-        #remove irrelevant features
+        # remove irrelevant features
         avgs *= features[id].astype('float64')
         weight_avg = avgs*norm_weight
         final_rec = np.nansum(weight_avg)
         recs.append((final_rec, movies[str(id+1)]))
-        #sort high to low
-        recs = sorted(recs, reverse = True)
-        #only return 10
+        # sort high to low
+        recs = sorted(recs, reverse=True)
+        # only return 10
         if len(recs) > 10:
             recs = recs[:10]
     return recs
 
+
 def main():
 
     # Load critics dict from file
-    path = os.getcwd() # this gets the current working directory
-                       # you can customize path for your own computer here
-    print('\npath: %s' % path) # debug
+    path = os.getcwd()  # this gets the current working directory
+    # you can customize path for your own computer here
+    print('\npath: %s' % path)  # debug
     print()
     prefs = {}
     done = False
@@ -495,16 +516,20 @@ def main():
         if file_io == 'R' or file_io == 'r':
             print()
             file_dir = 'data/'
-            datafile = 'critics_ratings.data' # for userids use 'critics_ratings_userIDs.data'
+            # for userids use 'critics_ratings_userIDs.data'
+            datafile = 'critics_ratings.data'
             itemfile = 'critics_movies.item'
-            genrefile = 'critics_movies.genre' # movie genre file
-            print ('Reading "%s" dictionary from file' % datafile)
-            prefs = from_file_to_dict(path, file_dir+datafile, file_dir+itemfile)
-            movies, genres, features = from_file_to_2D(path, file_dir+genrefile, file_dir+itemfile)
+            genrefile = 'critics_movies.genre'  # movie genre file
+            print('Reading "%s" dictionary from file' % datafile)
+            prefs = from_file_to_dict(
+                path, file_dir+datafile, file_dir+itemfile)
+            movies, genres, features = from_file_to_2D(
+                path, file_dir+genrefile, file_dir+itemfile)
             print('Number of users: %d\nList of users:' % len(prefs),
                   list(prefs.keys()))
 
-            print ('Number of distinct genres: %d, number of feature profiles: %d' % (len(genres), len(features)))
+            print('Number of distinct genres: %d, number of feature profiles: %d' % (
+                len(genres), len(features)))
             print('genres')
             print(genres)
             print('features')
@@ -512,18 +537,20 @@ def main():
 
         elif file_io == 'RML' or file_io == 'rml':
             print()
-            file_dir = 'data/ml-100k/' # path from current directory
+            file_dir = 'data/ml-100k/'  # path from current directory
             datafile = 'u.data'  # ratngs file
             itemfile = 'u.item'  # movie titles file
-            genrefile = 'u.genre' # movie genre file
-            print ('Reading "%s" dictionary from file' % datafile)
-            prefs = from_file_to_dict(path, file_dir+datafile, file_dir+itemfile)
-            movies, genres, features = from_file_to_2D(path, file_dir+genrefile, file_dir+itemfile)
+            genrefile = 'u.genre'  # movie genre file
+            print('Reading "%s" dictionary from file' % datafile)
+            prefs = from_file_to_dict(
+                path, file_dir+datafile, file_dir+itemfile)
+            movies, genres, features = from_file_to_2D(
+                path, file_dir+genrefile, file_dir+itemfile)
 
             print('Number of users: %d\nList of users [0:10]:'
-                  % len(prefs), list(prefs.keys())[0:10] )
-            print ('Number of distinct genres: %d, number of feature profiles: %d'
-                   % (len(genres), len(features)))
+                  % len(prefs), list(prefs.keys())[0:10])
+            print('Number of distinct genres: %d, number of feature profiles: %d'
+                  % (len(genres), len(features)))
             print('genres')
             print(genres)
             print('features')
@@ -534,7 +561,7 @@ def main():
             print()
             #movie_title_to_id = movie_to_ID(movies)
             # determine the U-I matrix to use ..
-            if len(prefs) > 0 and len(prefs) <= 10: # critics
+            if len(prefs) > 0 and len(prefs) <= 10:  # critics
                 # convert prefs dictionary into 2D list
                 R = to_array(prefs)
 
@@ -559,7 +586,8 @@ def main():
                 print(movie_title_to_id)
                 for user in prefs:
                     print(user)
-                    recs = get_FE_recommendations(prefs, features, movie_title_to_id,movies, user)
+                    recs = get_FE_recommendations(
+                        prefs, features, movie_title_to_id, movies, user)
                     print(user, recs)
 
             elif len(prefs) > 10:
@@ -567,16 +595,17 @@ def main():
                 # convert prefs dictionary into 2D list
                 R = to_array(prefs)
                 movie_title_to_id = movie_to_ID(movies)
-                recs = get_FE_recommendations(prefs, features, movie_title_to_id, movies, '340')
+                recs = get_FE_recommendations(
+                    prefs, features, movie_title_to_id, movies, '340')
                 print(recs)
             else:
-                print ('Empty dictionary, read in some data!')
+                print('Empty dictionary, read in some data!')
                 print()
 
         elif file_io == 'TFIDF' or file_io == 'tfidf':
             print()
             # determine the U-I matrix to use ..
-            if len(prefs) > 0 and len(prefs) <= 10: # critics
+            if len(prefs) > 0 and len(prefs) <= 10:  # critics
                 # convert prefs dictionary into 2D list
                 R = to_array(prefs)
                 feature_str = to_string(features)
@@ -623,10 +652,10 @@ def main():
                 [0.61834884 0.         0.         0.         0.         1.        ]]
                 '''
 
-                #print and plot histogram of similarites
+                # print and plot histogram of similarites
                 plt.hist(graphArray, 10)
                 # plt.show()
-                get_TFIDF_recommendations(prefs, cosim_matrix, 'Michael', 0, movies)
+                # get_TFIDF_recommendations(prefs, cosim_matrix, 'Michael', 0, movies)
 
             elif len(prefs) > 10:
                 print('ml-100k')
@@ -645,7 +674,7 @@ def main():
                 cosim_matrix = cosine_sim(feature_docs)
                 print()
                 print('cosine sim matrix')
-                print (type(cosim_matrix), len(cosim_matrix))
+                print(type(cosim_matrix), len(cosim_matrix))
                 print()
 
                 print(cosim_matrix.shape)
@@ -656,7 +685,7 @@ def main():
                         if cosim_matrix[i][j] != 0 and cosim_matrix[i][j] != 1:
                             graphArray.append(cosim_matrix[i][j])
 
-                #Similarity Thresholds we decided: (>0.3, >0.5, >0.7)
+                # Similarity Thresholds we decided: (>0.3, >0.5, >0.7)
                 '''
                 <class 'numpy.ndarray'> 1682
 
@@ -668,57 +697,66 @@ def main():
                  [0.         0.         0.         ... 0.53394963 0.         1.        ]]
                 '''
 
-                #print and plot histogram of similarites)
+                # print and plot histogram of similarites)
                 plt.hist(graphArray, 10)
                 # plt.show()
 
-                get_TFIDF_recommendations(prefs, cosim_matrix, 1, .7, movies)
-                
+                # get_TFIDF_recommendations(prefs, cosim_matrix, 1, .7, movies)
+
             else:
-                print ('Empty dictionary, read in some data!')
+                print('Empty dictionary, read in some data!')
                 print()
 
         elif file_io == 'CBR-FE' or file_io == 'cbr-fe':
             print()
             # determine the U-I matrix to use ..
-            if len(prefs) > 0 and len(prefs) <= 10: # critics
+            if len(prefs) > 0 and len(prefs) <= 10:  # critics
                 print('critics')
-                userID = input('Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                userID = input(
+                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
                 movie_title_to_id = movie_to_ID(movies)
-                recs = get_FE_recommendations(prefs, features, movie_title_to_id, movies, userID)
+                recs = get_FE_recommendations(
+                    prefs, features, movie_title_to_id, movies, userID)
                 print(recs)
             elif len(prefs) > 10:
                 print('ml-100k')
-                userID = input('Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                userID = input(
+                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
                 movie_title_to_id = movie_to_ID(movies)
-                recs = get_FE_recommendations(prefs, features, movie_title_to_id, movies, userID)
+                recs = get_FE_recommendations(
+                    prefs, features, movie_title_to_id, movies, userID)
                 print(recs)
             else:
-                print ('Empty dictionary, read in some data!')
+                print('Empty dictionary, read in some data!')
                 print()
 
         elif file_io == 'CBR-TF' or file_io == 'cbr-tf':
             print()
             # determine the U-I matrix to use ..
-            if len(prefs) > 0 and len(prefs) <= 10: # critics
+            if len(prefs) > 0 and len(prefs) <= 10:  # critics
                 print('critics')
-                userID = input('Enter username (for critics) or userid (for ml-100k) or return to quit: ')
-                get_TFIDF_recommendations(prefs, cosim_matrix, user=userID)
+                userID = input(
+                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                get_TFIDF_recommendations(
+                    prefs, cosim_matrix, user=userID, sim_threshold=0, movies=movies)
 
             elif len(prefs) > 10:
                 print('ml-100k')
-                userID = input('Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                userID = input(
+                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
 
-                get_TFIDF_recommendations(prefs, cosim_matrix, user= userID)
-                
+                get_TFIDF_recommendations(
+                    prefs, cosim_matrix, user=userID, sim_threshold=0, movies=movies)
+
             else:
-                print ('Empty dictionary, read in some data!')
+                print('Empty dictionary, read in some data!')
                 print()
 
         else:
             done = True
 
     print('Goodbye!')
+
 
 if __name__ == "__main__":
     main()
