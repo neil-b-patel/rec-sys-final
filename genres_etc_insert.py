@@ -379,9 +379,9 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
             count += 1
         # both?
         if bottom > 0 and top > 0:
-            recs.append([movies[str(i)], top/bottom])
+            recs.append((top/bottom, movies[str(i)]))
 
-    print(sorted(recs, key=lambda x: x[1], reverse=True)[:10])
+    print(sorted(recs, reverse=True)[:10])
 
     # determine list of items not yet rated by the given user
     '''
