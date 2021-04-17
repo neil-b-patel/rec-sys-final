@@ -31,7 +31,7 @@ SIG_THRESHOLDS = [0, 0.3, 0.5, 0.7]
 
 
 def from_file_to_2D(path, genrefile, itemfile):
-    ''' 
+    '''
     Load feature matrix from specified file
 
     Parameters:
@@ -121,8 +121,8 @@ def from_file_to_2D(path, genrefile, itemfile):
 
 
 def from_file_to_dict(path, datafile, itemfile):
-    ''' 
-    Loads user-item matrix from specified file 
+    '''
+    Loads user-item matrix from specified file
 
     Parameters:
         -- path: directory path to datafile and itemfile
@@ -184,11 +184,11 @@ def prefs_to_2D_list(prefs):
     '''
     Converts prefs dictionary into 2D list used as input for the MF class
 
-    Parameters: 
+    Parameters:
         -- prefs: user-item matrix as a dicitonary (dictionary)
 
-    Returns: 
-        -- ui_matrix: (list) contains user-item matrix as a 2D list   
+    Returns:
+        -- ui_matrix: (list) contains user-item matrix as a 2D list
     '''
 
     ui_matrix = []
@@ -278,14 +278,14 @@ def to_docs(features_str, genres):
 
 
 def cosine_sim(docs):
-    ''' 
+    '''
     Performs cosine sim calcs on features list, aka docs in TF-IDF world
 
     Parameters:
         -- docs: list of item features
 
-    Returns:   
-        -- list containing cosim_matrix: item_feature-item_feature cosine similarity matrix 
+    Returns:
+        -- list containing cosim_matrix: item_feature-item_feature cosine similarity matrix
     '''
 
     print()
@@ -315,7 +315,8 @@ def cosine_sim(docs):
     print('Examples of similarity angles')
     if tfidf_matrix.shape[0] > 2:
         for i in range(6):
-            cos_sim = cosim_matrix[1][i] #(cosine_similarity(tfidf_matrix[0:1], tfidf_matrix))[0][i]
+            #(cosine_similarity(tfidf_matrix[0:1], tfidf_matrix))[0][i]
+            cos_sim = cosim_matrix[1][i]
             if cos_sim > 1: cos_sim = 1 # math precision creating problems!
             angle_in_radians = math.acos(cos_sim)
             print('Cosine sim: %.3f and angle between documents 2 and %d: '
@@ -337,29 +338,25 @@ def movie_to_ID(movies):
 
 
 def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
-    ''' 
-    Calculates recommendations for a given user 
+    '''
+    Calculates recommendations for a given user
 
     Parameters:
         -- prefs: dictionary containing user-item matrix
-        -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix 
-        -- user: string containing name of user requesting recommendation       
+        -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
+        -- user: string containing name of user requesting recommendation
         -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
-        -- movies: 
+        -- movies:
 
     Returns:
-        -- rankings: A list of recommended items with 0 or more tuples, 
+        -- rankings: A list of recommended items with 0 or more tuples,
            each tuple contains (predicted rating, item name).
            List is sorted, high to low, by predicted rating.
            An empty list is returned when no recommendations have been calc'd.
     '''
 
-    toRec = []
     recs = []
-
-    #user = user.capitalize()
     userRatings = prefs[str(user)]
-    # print(userRatings)
 
     for i in range(1, len(movies)+1):
         if movies[str(i)] in userRatings:
@@ -383,47 +380,10 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
 
     print(sorted(recs, reverse=True)[:10])
 
-    # determine list of items not yet rated by the given user
-    '''
-    for other in prefs:
-        for item in prefs[other]:
-            if item not in userRatings and item not in toRec:
-                toRec.append(item)
-
-    print(toRec)
-
-    for item in toRec:
-        sim_rating_product = 0
-        similarities_sum = 0
-        
-    
-
-        # find neighbor items in the cosim_matrix that are above the sim_threshold
-
-        # TODO:
-            # big thing to figure out is a way of matching the item_index of cosim_matrix to userRatings
-            # perhaps we use the movie_to_ID() function like how FE uses
-            # test w/ critics and mlk-10
-            # document and comment functions
-            # determine code walkthrough talking points and split 
-
-        # for j in cosim_matrix[item_i]:
-            # if cosim_matrix[item_i][j] >= sim_threshold:
-                # sim_rating_product += cosim_matrix[i][j] * userRatings[matching item from cosim]
-                # similarities_sum += cosim_matrix[i][j]
-        
-        # calc sum of the products divided by sum of similarities
-        weighted_rating = (item, sim_rating_product / similarities_sum)
-        recs.append(weighted_rating) 
-
-    # Sort the list of tuples by highest to lowest ratings
-    recs = sorted(recs, key=lambda x: x[1], reverse=True)
-    '''
-
 
 def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
-    ''' 
-    Calculates recommendations for a given user 
+    '''
+    Calculates recommendations for a given user
 
     Parameters:
         -- prefs: dictionary containing user-item matrix
@@ -434,7 +394,7 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
         -- user: string containing name of user requesting recommendation
 
     Returns:
-        -- rankings: A list of recommended items with 0 or more tuples, 
+        -- rankings: A list of recommended items with 0 or more tuples,
            each tuple contains (predicted rating, item name).
            List is sorted, high to low, by predicted rating.
            An empty list is returned when no recommendations have been calc'd.
@@ -490,6 +450,51 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
         if len(recs) > 10:
             recs = recs[:10]
     return recs
+
+
+def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
+    '''
+    Calculates recommendations for a given user
+
+    Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
+        -- user: string containing name of user requesting recommendation
+        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+        -- movies:
+
+    Returns:
+        -- rankings: A list of recommended items with 0 or more tuples,
+           each tuple contains (predicted rating, item name).
+           List is sorted, high to low, by predicted rating.
+           An empty list is returned when no recommendations have been calc'd.
+    '''
+    recs = []
+    print(sorted(recs, reverse=True)[:10])
+
+    # these seem to be the most straight-forward implementations
+    # Mixed seems to be the easiest of the bunch, but Weighted is also easy
+    # for Switching we need a way to compare the quality of recs between two sets
+    # -----------------------
+    # COMBINE RESULTS FROM SYSTEMS
+    # Weighted => calculate recs based on weighted average from user-based and item-based => Tango
+    # Switching => select recs based on best recommender for the case => Daily Learner
+    # Mixed => rank and present recs from multiple recommenders => Fusion
+
+    # his instructions seem to lean towards Feature Augmentation, so the decision might be already made
+    # "provide item (cosine) similarity matrix from content-based recommender based on content features
+    #  (e.g. genre) into an item-based collaborative filtering recommender"
+    # with this one, we just have to use the cosine matrix from TF-IDF in an item-based collaborative recommender
+    # -----------------------
+    # COMBINING FEATURES
+    # Feature Combination => select features from a recommender and add to another
+    # Feature Augmentation => incorporate feature results from a recommender as features into another
+
+    # let's avoid designing Meta-Level, but Cascade may work
+    # -----------------------
+    # PIPELINING RECOMMENDERS
+    # Cascade => use one recommender to produce "course" recs and use another to "refine" the recs => Entree
+    # Meta-Level => use model of a recommender as input to another => Fab
 
 
 def main():
@@ -559,7 +564,7 @@ def main():
 
         elif file_io == 'FE' or file_io == 'fe':
             print()
-            #movie_title_to_id = movie_to_ID(movies)
+            # movie_title_to_id = movie_to_ID(movies)
             # determine the U-I matrix to use ..
             if len(prefs) > 0 and len(prefs) <= 10:  # critics
                 # convert prefs dictionary into 2D list
@@ -746,6 +751,28 @@ def main():
                     'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
 
                 get_TFIDF_recommendations(
+                    prefs, cosim_matrix, user=userID, sim_threshold=0, movies=movies)
+
+            else:
+                print('Empty dictionary, read in some data!')
+                print()
+
+        elif file_io == 'HBR' or file_io == 'hbr':
+            print()
+            # determine the U-I matrix to use ..
+            if len(prefs) > 0 and len(prefs) <= 10:  # critics
+                print('critics')
+                userID = input(
+                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                get_hybrid_recommendations(
+                    prefs, cosim_matrix, user=userID, sim_threshold=0, movies=movies)
+
+            elif len(prefs) > 10:
+                print('ml-100k')
+                userID = input(
+                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+
+                get_hybrid_recommendations(
                     prefs, cosim_matrix, user=userID, sim_threshold=0, movies=movies)
 
             else:
