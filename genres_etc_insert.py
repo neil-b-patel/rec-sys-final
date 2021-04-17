@@ -452,7 +452,131 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
     return recs
 
 
-def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
+def sim_distance(prefs, p1, p2, sim_weighting=0):
+    ''' Calculate Euclidean distance similarity
+        Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- p1: string containing name of user 1
+        -- p2: string containing name of user 2
+        -- sim_weighting: similarity significance weighting factor (0, 25, 50)
+                          [default is 0, which represents No Weighting]
+        Returns:
+        -- Euclidean distance similarity as a float
+    '''
+
+    # Get the list of shared_items
+    si = {}
+    for item in prefs[p1]:
+        if item in prefs[p2]:
+            si[item] = 1
+
+    # if they have no ratings in common, return 0
+    if len(si) == 0:
+        return 0
+
+    # Add up the squares of all the differences
+    sum_of_squares = sum([pow(prefs[p1][item]-prefs[p2][item], 2)
+                          for item in prefs[p1] if item in prefs[p2]])
+
+    distance_sim = 1/(1+sqrt(sum_of_squares))
+
+    # apply significance weighting, if any
+
+    if sim_weighting != 0:
+        if len(si) < sim_weighting:
+            distance_sim *= (len(si) / sim_weighting)
+
+    return distance_sim
+
+
+def sim_pearson(prefs, p1, p2, sim_weighting=0):
+    ''' Calculate Pearson Correlation similarity
+        Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- p1: string containing name of user 1
+        -- p2: string containing name of user 2
+        -- sim_weighting: similarity significance weighting factor (0, 25, 50) 
+                          [default is 0, which represents No Weighting]
+        Returns:
+        -- Pearson Correlation similarity as a float
+    '''
+
+    # Get the list of shared_items
+    si = {}
+    for item in prefs[p1]:
+        if item in prefs[p2]:
+            si[item] = 1
+
+    # if they have no ratings in common, return 0
+    if len(si) == 0:
+        return 0
+
+    # calc avg rating for p1 and p2, using only shared ratings
+    x_avg = 0
+    y_avg = 0
+
+    for item in si:
+        x_avg += prefs[p1][item]
+        y_avg += prefs[p2][item]
+
+    x_avg /= len(si)
+    y_avg /= len(si)
+
+    # calc numerator of Pearson correlation formula
+    numerator = sum([(prefs[p1][item] - x_avg) * (prefs[p2][item] - y_avg)
+                     for item in si])
+
+    # calc denominator of Pearson correlation formula
+    denominator = math.sqrt(sum([(prefs[p1][item] - x_avg)**2 for item in si])) * \
+        math.sqrt(sum([(prefs[p2][item] - y_avg)**2 for item in si]))
+
+    # catch divide-by-0 errors
+    if denominator != 0:
+        sim_pearson = numerator / denominator
+
+        # apply significance weighting, if any
+        if sim_weighting != 0:
+            sim_pearson *= (len(si) / sim_weighting)
+
+        return sim_pearson
+    else:
+        return 0
+
+
+def calculateSimilarItems(prefs, n=100, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
+    ''' Creates a dictionary of items showing which other items they are most
+        similar to.
+        Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- n: number of similar matches for topMatches() to return
+        -- similarity: function to calc similarity (sim_pearson is default)
+        -- sim_weighting: similarity significance weighting factor (0, 25, 50), 
+                            default is 0 [None]
+        Returns:
+        -- A dictionary with a similarity matrix
+    '''
+
+    result = {}
+    c = 0
+
+    # Invert the preference matrix to be item-centric
+    itemPrefs = transformPrefs(prefs)
+
+    for item in itemPrefs:
+      # Status updates for larger datasets
+        c += 1
+        if c % 100 == 0:
+            percent_complete = (100*c)/len(itemPrefs)
+            print(str(percent_complete)+"% complete")
+
+        # Find the most similar items to this one
+        scores = topMatches(itemPrefs, item, similarity, n,
+                            sim_weighting, sim_threshold)
+        result[item] = scores
+    return result
+
+
+def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, ii_matrix, weighted=False):
     '''
     Calculates recommendations for a given user
 
@@ -461,7 +585,9 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies)
         -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
         -- user: string containing name of user requesting recommendation
         -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
-        -- movies:
+        -- movies: 
+        -- ii_matrix: pre-computed item-item matrix from a collaborative filtering 
+        -- weighted: if true, repalce sim in cosim_matrix with ii_matrix weighted value
 
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples,
@@ -470,6 +596,31 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies)
            An empty list is returned when no recommendations have been calc'd.
     '''
     recs = []
+    userRatings = prefs[str(user)]
+
+    # update TF-IDF sim matrix according to variations
+
+
+    for i in range(1, len(movies)+1):
+        if movies[str(i)] in userRatings:
+            continue
+        top = 0
+        bottom = 0
+        count = 0
+        for j in range(1, len(movies) + 1):
+            if movies[str(j)] not in userRatings:
+                continue
+            if i == j:
+                continue
+            if cosim_matrix[i-1][j-1] < sim_threshold:
+                continue
+            top += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
+            bottom += cosim_matrix[i-1][j-1]
+            count += 1
+        # both?
+        if bottom > 0 and top > 0:
+            recs.append((top/bottom, movies[str(i)]))
+
     print(sorted(recs, reverse=True)[:10])
 
     # these seem to be the most straight-forward implementations
