@@ -599,7 +599,10 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
     userRatings = prefs[str(user)]
 
     # update TF-IDF sim matrix according to variations
-
+    # iterate through the tf-idf sim matrix
+    # if value == 0, replace according rule
+        # if rule false => replace with item-item value
+        # if rule true => replace with weighted item-item value
 
     for i in range(1, len(movies)+1):
         if movies[str(i)] in userRatings:
@@ -622,6 +625,8 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
             recs.append((top/bottom, movies[str(i)]))
 
     print(sorted(recs, reverse=True)[:10])
+
+
 
     # these seem to be the most straight-forward implementations
     # Mixed seems to be the easiest of the bunch, but Weighted is also easy
