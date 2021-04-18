@@ -25,6 +25,7 @@ import os
 from matplotlib import pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from math import sqrt
 
 # accept all positive similarities > [i] for TF-IDF/ConsineSim Recommender
 SIG_THRESHOLDS = [0, 0.3, 0.5, 0.7]
@@ -453,7 +454,7 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
 
 
 def sim_distance(prefs, p1, p2, sim_weighting=0):
-    ''' 
+    '''
     Calculate Euclidean distance similarity
 
     Parameters:
@@ -492,14 +493,14 @@ def sim_distance(prefs, p1, p2, sim_weighting=0):
 
 
 def sim_pearson(prefs, p1, p2, sim_weighting=0):
-    ''' 
+    '''
     Calculate Pearson Correlation similarity
 
     Parameters:
         -- prefs: dictionary containing user-item matrix
         -- p1: string containing name of user 1
         -- p2: string containing name of user 2
-        -- sim_weighting: similarity significance weighting factor (0, 25, 50) 
+        -- sim_weighting: similarity significance weighting factor (0, 25, 50)
                           [default is 0, which represents No Weighting]
     Returns:
         -- Pearson Correlation similarity as a float
@@ -547,8 +548,8 @@ def sim_pearson(prefs, p1, p2, sim_weighting=0):
         return 0
 
 
-def topMatches(prefs, person, similarity=sim_pearson, n=5, sim_weighting=0, sim_threshold=0):
-    ''' 
+def topMatches(prefs, person, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
+    '''
     Returns the best matches for person from the prefs dictionary
 
     Parameters:
@@ -556,7 +557,7 @@ def topMatches(prefs, person, similarity=sim_pearson, n=5, sim_weighting=0, sim_
         -- person: string containing name of user
         -- similarity: function to calc similarity [sim_pearson is default]
         -- n: number of matches to find/return [5 is default]
-        -- sim_weighting: similarity significance weighting factor (0, 25, 50) 
+        -- sim_weighting: similarity significance weighting factor (0, 25, 50)
                           [default is 0, which represents No Weighting]
 
     Returns:
@@ -565,7 +566,7 @@ def topMatches(prefs, person, similarity=sim_pearson, n=5, sim_weighting=0, sim_
            List is sorted, high to low, by similarity.
            An empty list is returned when no matches have been calc'd.
     '''
-    scores = []
+    scores = {}
 
     # iterate through users in prefs
     for other in prefs:
@@ -573,22 +574,20 @@ def topMatches(prefs, person, similarity=sim_pearson, n=5, sim_weighting=0, sim_
         score = similarity(prefs, person, other, sim_weighting)
         # don't compare me to myself, accept scores above the threshold
         if other != person and score > sim_threshold:
-            scores.append((score, other))
+            scores[other] = score
 
-    scores.sort()
-    scores.reverse()
-    return scores[0:n]
+    return scores
 
 
 def calculateSimilarItems(prefs, n=100, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
-    ''' 
+    '''
     Creates a dictionary of items showing which other items they are most similar to.
 
     Parameters:
         -- prefs: dictionary containing user-item matrix
         -- n: number of similar matches for topMatches() to return
         -- similarity: function to calc similarity (sim_pearson is default)
-        -- sim_weighting: similarity significance weighting factor (0, 25, 50), 
+        -- sim_weighting: similarity significance weighting factor (0, 25, 50),
                             default is 0 [None]
 
     Returns:
@@ -609,8 +608,7 @@ def calculateSimilarItems(prefs, n=100, similarity=sim_pearson, sim_weighting=0,
             print(str(percent_complete)+"% complete")
 
         # Find the most similar items to this one
-        scores = topMatches(itemPrefs, item, similarity, n,
-                            sim_weighting, sim_threshold)
+        scores = topMatches(itemPrefs, item, similarity,sim_weighting, sim_threshold)
         result[item] = scores
     return result
 
@@ -624,8 +622,8 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
         -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
         -- user: string containing name of user requesting recommendation
         -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
-        -- movies: 
-        -- ii_matrix: pre-computed item-item matrix from a collaborative filtering 
+        -- movies:
+        -- ii_matrix: pre-computed item-item matrix from a collaborative filtering
         -- weighted: if true, repalce sim in cosim_matrix with ii_matrix weighted value
 
     Returns:
@@ -636,6 +634,7 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
     '''
     recs = []
     userRatings = prefs[str(user)]
+    print(ii_matrix)
 
     # update TF-IDF sim matrix according to variations
     # iterate through the tf-idf sim matrix
@@ -699,6 +698,7 @@ def main():
     print()
     prefs = {}
     done = False
+    cosim_matrix = []
 
     while not done:
         print()
@@ -708,6 +708,7 @@ def main():
                         'TFIDF(and cosine sim Setup)?, \n'
                         'CBR-FE(content-based recommendation Feature Encoding)?, \n'
                         'CBR-TF(content-based recommendation TF-IDF/CosineSim)? \n'
+                        'HBR(content-based recommendation Hybrid)? \n'
                         '==>> '
                         )
 
@@ -953,24 +954,41 @@ def main():
         elif file_io == 'HBR' or file_io == 'hbr':
             print()
             # determine the U-I matrix to use ..
-            if len(prefs) > 0 and len(prefs) <= 10:  # critics
-                print('critics')
-                userID = input(
-                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
-                get_hybrid_recommendations(
-                    prefs, cosim_matrix, user=userID, sim_threshold=0, movies=movies)
+            if len(cosim_matrix) > 0:
+                if len(prefs) > 0 and len(prefs) <= 10:  # critics
+                    print('critics')
+                    sim_items = calculateSimilarItems(prefs,similarity=sim_distance)
+                    pearson_items = calculateSimilarItems(prefs)
+                    method = input('Enter D for euclidean distance or P for pearson similarity')
+                    if method == 'D' or method == 'd':
+                        ii_matrix = sim_items
+                    else:
+                        ii_matrix = pearson_items
+                    userID = input(
+                        'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                    get_hybrid_recommendations(
+                        prefs, cosim_matrix, userID, 0, movies,ii_matrix,False)
 
-            elif len(prefs) > 10:
-                print('ml-100k')
-                userID = input(
-                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
-
-                get_hybrid_recommendations(
-                    prefs, cosim_matrix, user=userID, sim_threshold=0, movies=movies)
-
+                elif len(prefs) > 10:
+                    print('ml-100k')
+                    userID = input(
+                        'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                    sim_items = calculateSimilarItems(prefs,similarity=sim_distance)
+                    pearson_items = calculateSimilarItems(prefs)
+                    method = input('Enter D for euclidean distance or P for pearson similarity')
+                    if method == 'D' or method == 'd':
+                        ii_matrix = sim_items
+                    else:
+                        ii_matrix = pearson_items
+                    userID = input(
+                        'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                    get_hybrid_recommendations(
+                        prefs, cosim_matrix, userID, 0, movies,ii_matrix,False)
+                else:
+                    print('Empty dictionary, read in some data!')
+                    print()
             else:
-                print('Empty dictionary, read in some data!')
-                print()
+                print("Oops! Run TF-IDF first")
 
         else:
             done = True
