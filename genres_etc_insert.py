@@ -453,14 +453,16 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
 
 
 def sim_distance(prefs, p1, p2, sim_weighting=0):
-    ''' Calculate Euclidean distance similarity
-        Parameters:
+    ''' 
+    Calculate Euclidean distance similarity
+
+    Parameters:
         -- prefs: dictionary containing user-item matrix
         -- p1: string containing name of user 1
         -- p2: string containing name of user 2
         -- sim_weighting: similarity significance weighting factor (0, 25, 50)
                           [default is 0, which represents No Weighting]
-        Returns:
+    Returns:
         -- Euclidean distance similarity as a float
     '''
 
@@ -490,14 +492,16 @@ def sim_distance(prefs, p1, p2, sim_weighting=0):
 
 
 def sim_pearson(prefs, p1, p2, sim_weighting=0):
-    ''' Calculate Pearson Correlation similarity
-        Parameters:
+    ''' 
+    Calculate Pearson Correlation similarity
+
+    Parameters:
         -- prefs: dictionary containing user-item matrix
         -- p1: string containing name of user 1
         -- p2: string containing name of user 2
         -- sim_weighting: similarity significance weighting factor (0, 25, 50) 
                           [default is 0, which represents No Weighting]
-        Returns:
+    Returns:
         -- Pearson Correlation similarity as a float
     '''
 
@@ -543,16 +547,51 @@ def sim_pearson(prefs, p1, p2, sim_weighting=0):
         return 0
 
 
+def topMatches(prefs, person, similarity=sim_pearson, n=5, sim_weighting=0, sim_threshold=0):
+    ''' 
+    Returns the best matches for person from the prefs dictionary
+
+    Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- person: string containing name of user
+        -- similarity: function to calc similarity [sim_pearson is default]
+        -- n: number of matches to find/return [5 is default]
+        -- sim_weighting: similarity significance weighting factor (0, 25, 50) 
+                          [default is 0, which represents No Weighting]
+
+    Returns:
+        -- A list of similar matches with 0 or more tuples,
+           each tuple contains (similarity, item name).
+           List is sorted, high to low, by similarity.
+           An empty list is returned when no matches have been calc'd.
+    '''
+    scores = []
+
+    # iterate through users in prefs
+    for other in prefs:
+        # calculate similarity score
+        score = similarity(prefs, person, other, sim_weighting)
+        # don't compare me to myself, accept scores above the threshold
+        if other != person and score > sim_threshold:
+            scores.append((score, other))
+
+    scores.sort()
+    scores.reverse()
+    return scores[0:n]
+
+
 def calculateSimilarItems(prefs, n=100, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
-    ''' Creates a dictionary of items showing which other items they are most
-        similar to.
-        Parameters:
+    ''' 
+    Creates a dictionary of items showing which other items they are most similar to.
+
+    Parameters:
         -- prefs: dictionary containing user-item matrix
         -- n: number of similar matches for topMatches() to return
         -- similarity: function to calc similarity (sim_pearson is default)
         -- sim_weighting: similarity significance weighting factor (0, 25, 50), 
                             default is 0 [None]
-        Returns:
+
+    Returns:
         -- A dictionary with a similarity matrix
     '''
 
@@ -601,8 +640,8 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
     # update TF-IDF sim matrix according to variations
     # iterate through the tf-idf sim matrix
     # if value == 0, replace according rule
-        # if rule false => replace with item-item value
-        # if rule true => replace with weighted item-item value
+    # if rule false => replace with item-item value
+    # if rule true => replace with weighted item-item value
 
     for i in range(1, len(movies)+1):
         if movies[str(i)] in userRatings:
@@ -625,8 +664,6 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
             recs.append((top/bottom, movies[str(i)]))
 
     print(sorted(recs, reverse=True)[:10])
-
-
 
     # these seem to be the most straight-forward implementations
     # Mixed seems to be the easiest of the bunch, but Weighted is also easy
