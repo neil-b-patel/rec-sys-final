@@ -28,7 +28,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 from math import sqrt
 
 # accept all positive similarities > [i] for TF-IDF/ConsineSim Recommender
-SIG_THRESHOLDS = [0, 0.3, 0.5, 0.7]
+SIM_THRESHOLDS = [0, 0.3, 0.5, 0.7]
+SIM_WEIGHTING = [0, 25, 50]
+
+# haven't tested extensively, but we went with 0.5 b/c of
+# a nice blend of previous CBR results and novel recommendations
+HYBRID_WEIGHTING = 0.5
 
 
 def from_file_to_2D(path, genrefile, itemfile):
@@ -316,7 +321,7 @@ def cosine_sim(docs):
     print('Examples of similarity angles')
     if tfidf_matrix.shape[0] > 2:
         for i in range(6):
-            #(cosine_similarity(tfidf_matrix[0:1], tfidf_matrix))[0][i]
+            # (cosine_similarity(tfidf_matrix[0:1], tfidf_matrix))[0][i]
             cos_sim = cosim_matrix[1][i]
             if cos_sim > 1: cos_sim = 1 # math precision creating problems!
             angle_in_radians = math.acos(cos_sim)
@@ -362,24 +367,32 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
     for i in range(1, len(movies)+1):
         if movies[str(i)] in userRatings:
             continue
-        top = 0
-        bottom = 0
+
+        num = 0
+        denom = 0
         count = 0
+
         for j in range(1, len(movies) + 1):
             if movies[str(j)] not in userRatings:
                 continue
+
             if i == j:
                 continue
+
             if cosim_matrix[i-1][j-1] < sim_threshold:
                 continue
-            top += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
-            bottom += cosim_matrix[i-1][j-1]
+
+            num += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
+            denom += cosim_matrix[i-1][j-1]
             count += 1
+
         # both?
-        if bottom > 0 and top > 0:
-            recs.append((top/bottom, movies[str(i)]))
+        if num > 0 and denom > 0:
+            recs.append((num/denom, movies[str(i)]))
 
     print(sorted(recs, reverse=True)[:10])
+
+    return recs
 
 
 def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
@@ -405,8 +418,9 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
     # generate set of total possible ids
     total_ids = list(range(0, len(features)))
     total_set = set(total_ids)
-    # print(total_set)
+
     feature_preference = np.copy(features)
+
     # transform features into the feature_preference matrix
     feature_preference = feature_preference.astype('float64')
     rated = set()
@@ -414,42 +428,51 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
         id = (int)(movie_title_to_id[movie])-1
         feature_preference[id] *= prefs[user][movie]
         rated.add(id)
+
     # set subtraction to pull out unrated items
     unrated_ids = total_set.difference(rated)
 
     # set unrated rows to 0s
     for id in unrated_ids:
         feature_preference[id] *= 0
+
     # take column wise sum, overall sum, and normalized vector
     col_sums = np.sum(feature_preference, axis=0)
     overall_sum = np.sum(feature_preference)
     norm_vector = col_sums/overall_sum
 
     recs = []
+
     # for each unrated item
     for id in unrated_ids:
         # multiply features row for item by normalized vector
         norm_weight = features[id]*norm_vector
         norm_sum = np.sum(norm_weight)
+
         # avoid divide by 0 error
         if norm_sum == 0:
             continue
         norm_weight = norm_weight/norm_sum
+
         # get nonzero count
         nonzero_count = np.count_nonzero(feature_preference, axis=0)
-        # get vector of averages
-        # pass over divide by 0
+
+        # get vector of averages, pass over divide by 0
         avgs = col_sums/nonzero_count
+
         # remove irrelevant features
         avgs *= features[id].astype('float64')
         weight_avg = avgs*norm_weight
         final_rec = np.nansum(weight_avg)
         recs.append((final_rec, movies[str(id+1)]))
+
         # sort high to low
         recs = sorted(recs, reverse=True)
+
         # only return 10
         if len(recs) > 10:
             recs = recs[:10]
+
     return recs
 
 
@@ -556,9 +579,10 @@ def topMatches(prefs, person, similarity=sim_pearson, sim_weighting=0, sim_thres
         -- prefs: dictionary containing user-item matrix
         -- person: string containing name of user
         -- similarity: function to calc similarity [sim_pearson is default]
-        -- n: number of matches to find/return [5 is default]
         -- sim_weighting: similarity significance weighting factor (0, 25, 50)
                           [default is 0, which represents No Weighting]
+        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+
 
     Returns:
         -- A list of similar matches with 0 or more tuples,
@@ -572,6 +596,7 @@ def topMatches(prefs, person, similarity=sim_pearson, sim_weighting=0, sim_thres
     for other in prefs:
         # calculate similarity score
         score = similarity(prefs, person, other, sim_weighting)
+
         # don't compare me to myself, accept scores above the threshold
         if other != person and score > sim_threshold:
             scores[other] = score
@@ -579,16 +604,16 @@ def topMatches(prefs, person, similarity=sim_pearson, sim_weighting=0, sim_thres
     return scores
 
 
-def calculateSimilarItems(prefs, n=100, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
+def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
     '''
     Creates a dictionary of items showing which other items they are most similar to.
 
     Parameters:
         -- prefs: dictionary containing user-item matrix
-        -- n: number of similar matches for topMatches() to return
         -- similarity: function to calc similarity (sim_pearson is default)
-        -- sim_weighting: similarity significance weighting factor (0, 25, 50),
-                            default is 0 [None]
+        -- sim_weighting: similarity significance weighting factor (0, 25, 50)
+                          [default is 0, which represents No Weighting]
+        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
 
     Returns:
         -- A dictionary with a similarity matrix
@@ -605,11 +630,13 @@ def calculateSimilarItems(prefs, n=100, similarity=sim_pearson, sim_weighting=0,
         c += 1
         if c % 100 == 0:
             percent_complete = (100*c)/len(itemPrefs)
-            print(str(percent_complete)+"% complete")
+            print("%d%% complete" % (percent_complete))
 
         # Find the most similar items to this one
-        scores = topMatches(itemPrefs, item, similarity,sim_weighting, sim_threshold)
+        scores = topMatches(itemPrefs, item, similarity,
+                            sim_weighting, sim_threshold)
         result[item] = scores
+
     return result
 
 
@@ -634,33 +661,52 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
     '''
     recs = []
     userRatings = prefs[str(user)]
-    print(ii_matrix)
 
-    # update TF-IDF sim matrix according to variations
-    # iterate through the tf-idf sim matrix
-    # if value == 0, replace according rule
-    # if rule false => replace with item-item value
-    # if rule true => replace with weighted item-item value
-
-    for i in range(1, len(movies)+1):
+    # iterate through cosim_matrix
+    for i in range(1, len(cosim_matrix) + 1):
+        # movie is already rated by user
         if movies[str(i)] in userRatings:
             continue
-        top = 0
-        bottom = 0
-        count = 0
-        for j in range(1, len(movies) + 1):
+
+        num = 0
+        denom = 0
+        # count = 0
+
+        for j in range(1, len(cosim_matrix) + 1):
+            # neighbor movie has not been rated by the user
             if movies[str(j)] not in userRatings:
                 continue
+
+            # do not compare self to self
             if i == j:
                 continue
+
+            # does not meet similarity threshold
             if cosim_matrix[i-1][j-1] < sim_threshold:
                 continue
-            top += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
-            bottom += cosim_matrix[i-1][j-1]
-            count += 1
-        # both?
-        if bottom > 0 and top > 0:
-            recs.append((top/bottom, movies[str(i)]))
+
+            # "fill in" similarities of 0 using collaborative filtering item-item similarity matrix
+            if cosim_matrix[i-1][j-1] == 0:
+
+                # skip missing titles because there is no similarity
+                if movies[str(j)] not in ii_matrix[movies[str(i)]]:
+                    # print("No similarity found between the titles: {} and {}".format(movies[str(i)], movies[str(j)]))
+                    continue
+
+                # replace with corresponding item-item similarity matrix value
+                cosim_matrix[i-1][j -
+                                  1] = ii_matrix[movies[str(i)]][movies[str(j)]]
+
+                # compute similarity with weighting factor
+                if weighted:
+                    cosim_matrix[i-1][j-1] *= HYBRID_WEIGHTING
+
+            num += userRatings[movies[str(j)]] * cosim_matrix[i-1][j-1]
+            denom += cosim_matrix[i-1][j-1]
+            # count += 1
+
+        if num > 0 and denom > 0:
+            recs.append((num/denom, movies[str(i)]))
 
     print(sorted(recs, reverse=True)[:10])
 
@@ -852,9 +898,8 @@ def main():
                 '''
 
                 # print and plot histogram of similarites
-                plt.hist(graphArray, 10)
+                # plt.hist(graphArray, 10)
                 # plt.show()
-                # get_TFIDF_recommendations(prefs, cosim_matrix, 'Michael', 0, movies)
 
             elif len(prefs) > 10:
                 print('ml-100k')
@@ -897,10 +942,8 @@ def main():
                 '''
 
                 # print and plot histogram of similarites)
-                plt.hist(graphArray, 10)
+                # plt.hist(graphArray, 10)
                 # plt.show()
-
-                # get_TFIDF_recommendations(prefs, cosim_matrix, 1, .7, movies)
 
             else:
                 print('Empty dictionary, read in some data!')
@@ -912,7 +955,7 @@ def main():
             if len(prefs) > 0 and len(prefs) <= 10:  # critics
                 print('critics')
                 userID = input(
-                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                    'Enter username (for critics) or return to quit: ')
                 movie_title_to_id = movie_to_ID(movies)
                 recs = get_FE_recommendations(
                     prefs, features, movie_title_to_id, movies, userID)
@@ -920,7 +963,7 @@ def main():
             elif len(prefs) > 10:
                 print('ml-100k')
                 userID = input(
-                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                    'Enter userid (for ml-100k) or return to quit: ')
                 movie_title_to_id = movie_to_ID(movies)
                 recs = get_FE_recommendations(
                     prefs, features, movie_title_to_id, movies, userID)
@@ -935,14 +978,14 @@ def main():
             if len(prefs) > 0 and len(prefs) <= 10:  # critics
                 print('critics')
                 userID = input(
-                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                    'Enter username (for critics) or return to quit: ')
                 get_TFIDF_recommendations(
-                    prefs, cosim_matrix, user=userID, sim_threshold=0, movies=movies)
+                    prefs, cosim_matrix, user=userID, sim_threshold=SIM_THRESHOLDS[0], movies=movies)
 
             elif len(prefs) > 10:
                 print('ml-100k')
                 userID = input(
-                    'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                    'Enter userid (for ml-100k) or return to quit: ')
 
                 get_TFIDF_recommendations(
                     prefs, cosim_matrix, user=userID, sim_threshold=0, movies=movies)
@@ -953,37 +996,48 @@ def main():
 
         elif file_io == 'HBR' or file_io == 'hbr':
             print()
-            # determine the U-I matrix to use ..
+            # determine the U-I matrix to use
+
+            # TODO:
+                # determine best signifance weighting for distance/pearson
+                # determine best hybrid weighting (0.25, 0.50, 0.75)
+                # verify the results of get_hybrid_recommendations
+
             if len(cosim_matrix) > 0:
                 if len(prefs) > 0 and len(prefs) <= 10:  # critics
                     print('critics')
-                    sim_items = calculateSimilarItems(prefs,similarity=sim_distance)
-                    pearson_items = calculateSimilarItems(prefs)
-                    method = input('Enter D for euclidean distance or P for pearson similarity')
+                    sim_items = calculateSimilarItems(
+                        prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
+                    pearson_items = calculateSimilarItems(
+                        prefs, sim_weighting=SIM_WEIGHTING[0])
+                    method = input(
+                        'Enter D for euclidean distance or P for pearson similarity: ')
                     if method == 'D' or method == 'd':
                         ii_matrix = sim_items
                     else:
                         ii_matrix = pearson_items
                     userID = input(
-                        'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                        'Enter username (for critics) or return to quit: ')
                     get_hybrid_recommendations(
-                        prefs, cosim_matrix, userID, 0, movies,ii_matrix,False)
+                        prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, ii_matrix, True)
 
                 elif len(prefs) > 10:
                     print('ml-100k')
-                    userID = input(
-                        'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
-                    sim_items = calculateSimilarItems(prefs,similarity=sim_distance)
-                    pearson_items = calculateSimilarItems(prefs)
-                    method = input('Enter D for euclidean distance or P for pearson similarity')
+                    # sim_items= calculateSimilarItems(
+                    #     prefs, similarity=sim_distance)
+                    # pearson_items= calculateSimilarItems(prefs)
+                    method = input(
+                        'Enter D for euclidean distance or P for pearson similarity: ')
                     if method == 'D' or method == 'd':
-                        ii_matrix = sim_items
+                        ii_matrix = calculateSimilarItems(
+                            prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
                     else:
-                        ii_matrix = pearson_items
+                        ii_matrix = calculateSimilarItems(
+                            prefs, sim_weighting=SIM_WEIGHTING[0])
                     userID = input(
-                        'Enter username (for critics) or userid (for ml-100k) or return to quit: ')
+                        'Enter userid (for ml-100k) or return to quit: ')
                     get_hybrid_recommendations(
-                        prefs, cosim_matrix, userID, 0, movies,ii_matrix,False)
+                        prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, ii_matrix, True)
                 else:
                     print('Empty dictionary, read in some data!')
                     print()
