@@ -26,6 +26,7 @@ from matplotlib import pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from math import sqrt
+import pickle
 
 # accept all positive similarities > [i] for TF-IDF/ConsineSim Recommender
 SIM_THRESHOLDS = [0, 0.3, 0.5, 0.7]
@@ -745,7 +746,7 @@ def main():
     prefs = {}
     done = False
     cosim_matrix = []
-
+    itemsim = {}
     while not done:
         print()
         file_io = input('R(ead) critics data from file?, \n'
@@ -754,6 +755,7 @@ def main():
                         'TFIDF(and cosine sim Setup)?, \n'
                         'CBR-FE(content-based recommendation Feature Encoding)?, \n'
                         'CBR-TF(content-based recommendation TF-IDF/CosineSim)? \n'
+                        'SIM(ilarity matrix item-item calculation)? \n'
                         'HBR(content-based recommendation Hybrid)? \n'
                         '==>> '
                         )
@@ -994,6 +996,47 @@ def main():
                 print('Empty dictionary, read in some data!')
                 print()
 
+        elif file_io == 'SIM' or file_io == 'sim':
+            print()
+            if len(prefs) > 0:
+                ready = False # sub command in progress
+                sub_cmd = input('RD(ead) distance or RP(ead) pearson or WD(rite) distance or WP(rite) pearson? ')
+                try:
+                    if sub_cmd == 'RD' or sub_cmd == 'rd':
+                        # Load the dictionary back from the pickle file.
+                        itemsim = pickle.load(open( "save_itemsim_distance.p", "rb" ))
+                        sim_method = 'sim_distance'
+
+                    elif sub_cmd == 'RP' or sub_cmd == 'rp':
+                        # Load the dictionary back from the pickle file.
+                        itemsim = pickle.load(open( "save_itemsim_pearson.p", "rb" ))
+                        sim_method = 'sim_pearson'
+
+                    elif sub_cmd == 'WD' or sub_cmd == 'wd':
+                        # transpose the U-I matrix and calc item-item similarities matrix
+                        itemsim = calculateSimilarItems(prefs,similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
+                        # Dump/save dictionary to a pickle file
+                        pickle.dump(itemsim, open( "save_itemsim_distance.p", "wb" ))
+                        sim_method = 'sim_distance'
+
+                    elif sub_cmd == 'WP' or sub_cmd == 'wp':
+                        # transpose the U-I matrix and calc item-item similarities matrix
+                        itemsim = calculateSimilarItems(prefs,similarity=sim_pearson, sim_weighting=SIM_WEIGHTING[0])
+                        # Dump/save dictionary to a pickle file
+                        pickle.dump(itemsim, open( "save_itemsim_pearson.p", "wb" ))
+                        sim_method = 'sim_pearson'
+
+                    else:
+                        print("Sim sub-command %s is invalid, try again" % sub_cmd)
+                        continue
+
+                    ready = True # sub command completed successfully
+
+                except Exception as ex:
+                    print ('Error!!', ex, '\nNeed to W(rite) a file before you can R(ead) it!'
+                           ' Enter Sim(ilarity matrix) again and choose a Write command')
+                    print()
+
         elif file_io == 'HBR' or file_io == 'hbr':
             print()
             # determine the U-I matrix to use
@@ -1004,43 +1047,51 @@ def main():
                 # verify the results of get_hybrid_recommendations
 
             if len(cosim_matrix) > 0:
-                if len(prefs) > 0 and len(prefs) <= 10:  # critics
-                    print('critics')
-                    sim_items = calculateSimilarItems(
-                        prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
-                    pearson_items = calculateSimilarItems(
-                        prefs, sim_weighting=SIM_WEIGHTING[0])
-                    method = input(
-                        'Enter D for euclidean distance or P for pearson similarity: ')
-                    if method == 'D' or method == 'd':
-                        ii_matrix = sim_items
-                    else:
-                        ii_matrix = pearson_items
-                    userID = input(
-                        'Enter username (for critics) or return to quit: ')
-                    get_hybrid_recommendations(
-                        prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, ii_matrix, True)
+                if len(itemsim) > 0:
+                    if len(prefs) > 0 and len(prefs) <= 10:  # critics
+                        print('critics')
 
-                elif len(prefs) > 10:
-                    print('ml-100k')
-                    # sim_items= calculateSimilarItems(
-                    #     prefs, similarity=sim_distance)
-                    # pearson_items= calculateSimilarItems(prefs)
-                    method = input(
-                        'Enter D for euclidean distance or P for pearson similarity: ')
-                    if method == 'D' or method == 'd':
-                        ii_matrix = calculateSimilarItems(
+                        '''
+                        sim_items = calculateSimilarItems(
                             prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
-                    else:
-                        ii_matrix = calculateSimilarItems(
+                        pearson_items = calculateSimilarItems(
                             prefs, sim_weighting=SIM_WEIGHTING[0])
-                    userID = input(
-                        'Enter userid (for ml-100k) or return to quit: ')
-                    get_hybrid_recommendations(
-                        prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, ii_matrix, True)
+                        method = input(
+                            'Enter D for euclidean distance or P for pearson similarity: ')
+                        if method == 'D' or method == 'd':
+                            ii_matrix = sim_items
+                        else:
+                            ii_matrix = pearson_items
+                        '''
+                        userID = input(
+                            'Enter username (for critics) or return to quit: ')
+                        get_hybrid_recommendations(
+                            prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, itemsim, True)
+
+                    elif len(prefs) > 10:
+                        print('ml-100k')
+                        # sim_items= calculateSimilarItems(
+                        #     prefs, similarity=sim_distance)
+                        # pearson_items= calculateSimilarItems(prefs)
+                        '''
+                        method = input(
+                            'Enter D for euclidean distance or P for pearson similarity: ')
+                        if method == 'D' or method == 'd':
+                            ii_matrix = calculateSimilarItems(
+                                prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
+                        else:
+                            ii_matrix = calculateSimilarItems(
+                                prefs, sim_weighting=SIM_WEIGHTING[0])
+                        '''
+                        userID = input(
+                            'Enter userid (for ml-100k) or return to quit: ')
+                        get_hybrid_recommendations(
+                            prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, itemsim, True)
+                    else:
+                        print('Empty dictionary, read in some data!')
+                        print()
                 else:
-                    print('Empty dictionary, read in some data!')
-                    print()
+                    print("Oops! Read a (Sim)ilarity Matrix first")
             else:
                 print("Oops! Run TF-IDF first")
 
