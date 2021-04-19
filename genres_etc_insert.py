@@ -1065,8 +1065,15 @@ def main():
                         '''
                         userID = input(
                             'Enter username (for critics) or return to quit: ')
-                        get_hybrid_recommendations(
-                            prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, itemsim, True)
+                        weighting = input('Use weighting? (T or F)')
+                        if weighting == "F" or weighting == "f":
+                            print("weighting not selected")
+                            get_hybrid_recommendations(
+                                prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, itemsim, False)
+                        else:
+                            print("weighting selected")
+                            get_hybrid_recommendations(
+                                prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, itemsim, True)
 
                     elif len(prefs) > 10:
                         print('ml-100k')
@@ -1085,8 +1092,15 @@ def main():
                         '''
                         userID = input(
                             'Enter userid (for ml-100k) or return to quit: ')
-                        get_hybrid_recommendations(
-                            prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, itemsim, True)
+                        weighting = input('Use weighting? (T or F): ')
+                        if weighting == "F" or weighting == "f":
+                            print("weighting not selected")
+                            get_hybrid_recommendations(
+                                prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, itemsim, False)
+                        else:
+                            print("weighting selected")
+                            get_hybrid_recommendations(
+                                prefs, cosim_matrix, userID, SIM_THRESHOLDS[0], movies, itemsim, True)
                     else:
                         print('Empty dictionary, read in some data!')
                         print()
