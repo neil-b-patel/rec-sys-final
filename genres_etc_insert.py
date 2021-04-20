@@ -20,13 +20,13 @@ https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.tex
 
 import numpy as np
 import pandas as pd
-import math
-import os
+import math, os, pickle
+from copy import deepcopy
+from math import sqrt
 from matplotlib import pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from math import sqrt
-import pickle
+
 
 # accept all positive similarities > [i] for TF-IDF/ConsineSim Recommender
 SIM_THRESHOLDS = [0, 0.3, 0.5, 0.7]
@@ -344,7 +344,7 @@ def movie_to_ID(movies):
     return movie_title_to_id
 
 
-def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
+def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, n=15):
     '''
     Calculates recommendations for a given user
 
@@ -391,12 +391,12 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies):
         if num > 0 and denom > 0:
             recs.append((num/denom, movies[str(i)]))
 
-    print(sorted(recs, reverse=True)[:10])
+    print(sorted(recs, reverse=True)[:n])
 
     return recs
 
 
-def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
+def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=15):
     '''
     Calculates recommendations for a given user
 
@@ -472,7 +472,7 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user):
 
         # only return 10
         if len(recs) > 10:
-            recs = recs[:10]
+            recs = recs[:n]
 
     return recs
 
@@ -605,7 +605,7 @@ def topMatches(prefs, person, similarity=sim_pearson, sim_weighting=0, sim_thres
     return scores
 
 
-def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
+def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGHTING[2], sim_threshold=0):
     '''
     Creates a dictionary of items showing which other items they are most similar to.
 
@@ -641,7 +641,7 @@ def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=0, sim_th
     return result
 
 
-def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, ii_matrix, weighted=False):
+def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, ii_matrix, weighted=False, n=15):
     '''
     Calculates recommendations for a given user
 
@@ -662,9 +662,10 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
     '''
     recs = []
     userRatings = prefs[str(user)]
+    copy_cosim = deepcopy(cosim_matrix)
 
     # iterate through cosim_matrix
-    for i in range(1, len(cosim_matrix) + 1):
+    for i in range(1, len(copy_cosim) + 1):
         # movie is already rated by user
         if movies[str(i)] in userRatings:
             continue
@@ -673,7 +674,7 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
         denom = 0
         # count = 0
 
-        for j in range(1, len(cosim_matrix) + 1):
+        for j in range(1, len(copy_cosim) + 1):
             # neighbor movie has not been rated by the user
             if movies[str(j)] not in userRatings:
                 continue
@@ -683,11 +684,11 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
                 continue
 
             # does not meet similarity threshold
-            if cosim_matrix[i-1][j-1] < sim_threshold:
+            if copy_cosim[i-1][j-1] < sim_threshold:
                 continue
 
             # "fill in" similarities of 0 using collaborative filtering item-item similarity matrix
-            if cosim_matrix[i-1][j-1] == 0:
+            if copy_cosim[i-1][j-1] == 0:
 
                 # skip missing titles because there is no similarity
                 if movies[str(j)] not in ii_matrix[movies[str(i)]]:
@@ -695,21 +696,20 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
                     continue
 
                 # replace with corresponding item-item similarity matrix value
-                cosim_matrix[i-1][j -
-                                  1] = ii_matrix[movies[str(i)]][movies[str(j)]]
+                copy_cosim[i-1][j-1] = ii_matrix[movies[str(i)]][movies[str(j)]]
 
                 # compute similarity with weighting factor
                 if weighted:
-                    cosim_matrix[i-1][j-1] *= HYBRID_WEIGHTING
+                    copy_cosim[i-1][j-1] *= HYBRID_WEIGHTING
 
-            num += userRatings[movies[str(j)]] * cosim_matrix[i-1][j-1]
-            denom += cosim_matrix[i-1][j-1]
+            num += userRatings[movies[str(j)]] * copy_cosim[i-1][j-1]
+            denom += copy_cosim[i-1][j-1]
             # count += 1
 
         if num > 0 and denom > 0:
             recs.append((num/denom, movies[str(i)]))
 
-    print(sorted(recs, reverse=True)[:10])
+    print(sorted(recs, reverse=True)[:n])
 
     # these seem to be the most straight-forward implementations
     # Mixed seems to be the easiest of the bunch, but Weighted is also easy
@@ -1050,7 +1050,6 @@ def main():
                 if len(itemsim) > 0:
                     if len(prefs) > 0 and len(prefs) <= 10:  # critics
                         print('critics')
-
                         '''
                         sim_items = calculateSimilarItems(
                             prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
@@ -1065,7 +1064,7 @@ def main():
                         '''
                         userID = input(
                             'Enter username (for critics) or return to quit: ')
-                        weighting = input('Use weighting? (T or F)')
+                        weighting = input('Use weighting of {}? (T or F): '.format(HYBRID_WEIGHTING))
                         if weighting == "F" or weighting == "f":
                             print("weighting not selected")
                             get_hybrid_recommendations(
@@ -1092,7 +1091,7 @@ def main():
                         '''
                         userID = input(
                             'Enter userid (for ml-100k) or return to quit: ')
-                        weighting = input('Use weighting? (T or F): ')
+                        weighting = input('Use weighting of {}? (T or F): '.format(HYBRID_WEIGHTING))
                         if weighting == "F" or weighting == "f":
                             print("weighting not selected")
                             get_hybrid_recommendations(
