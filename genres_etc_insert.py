@@ -20,7 +20,9 @@ https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.tex
 
 import numpy as np
 import pandas as pd
-import math, os, pickle
+import math
+import os
+import pickle
 from copy import deepcopy
 from math import sqrt
 from matplotlib import pyplot as plt
@@ -318,20 +320,6 @@ def cosine_sim(docs):
     print(cosim_matrix[0:6])
     print()
 
-    '''
-    print('Examples of similarity angles')
-    if tfidf_matrix.shape[0] > 2:
-        for i in range(6):
-            # (cosine_similarity(tfidf_matrix[0:1], tfidf_matrix))[0][i]
-            cos_sim = cosim_matrix[1][i]
-            if cos_sim > 1: cos_sim = 1 # math precision creating problems!
-            angle_in_radians = math.acos(cos_sim)
-            print('Cosine sim: %.3f and angle between documents 2 and %d: '
-                  % (cos_sim, i+1), end=' ')
-            print ('%.3f degrees, %.3f radians'
-                   % (math.degrees(angle_in_radians), angle_in_radians))
-    '''
-
     return cosim_matrix
 
 
@@ -371,7 +359,7 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, 
 
         num = 0
         denom = 0
-        count = 0
+        # count = 0
 
         for j in range(1, len(movies) + 1):
             if movies[str(j)] not in userRatings:
@@ -385,9 +373,8 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, 
 
             num += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
             denom += cosim_matrix[i-1][j-1]
-            count += 1
+            # count += 1
 
-        # both?
         if num > 0 and denom > 0:
             recs.append((num/denom, movies[str(i)]))
 
@@ -605,7 +592,7 @@ def topMatches(prefs, person, similarity=sim_pearson, sim_weighting=0, sim_thres
     return scores
 
 
-def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGHTING[2], sim_threshold=0):
+def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGHTING[1], sim_threshold=0):
     '''
     Creates a dictionary of items showing which other items they are most similar to.
 
@@ -711,30 +698,7 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
 
     print(sorted(recs, reverse=True)[:n])
 
-    # these seem to be the most straight-forward implementations
-    # Mixed seems to be the easiest of the bunch, but Weighted is also easy
-    # for Switching we need a way to compare the quality of recs between two sets
-    # -----------------------
-    # COMBINE RESULTS FROM SYSTEMS
-    # Weighted => calculate recs based on weighted average from user-based and item-based => Tango
-    # Switching => select recs based on best recommender for the case => Daily Learner
-    # Mixed => rank and present recs from multiple recommenders => Fusion
-
-    # his instructions seem to lean towards Feature Augmentation, so the decision might be already made
-    # "provide item (cosine) similarity matrix from content-based recommender based on content features
-    #  (e.g. genre) into an item-based collaborative filtering recommender"
-    # with this one, we just have to use the cosine matrix from TF-IDF in an item-based collaborative recommender
-    # -----------------------
-    # COMBINING FEATURES
-    # Feature Combination => select features from a recommender and add to another
-    # Feature Augmentation => incorporate feature results from a recommender as features into another
-
-    # let's avoid designing Meta-Level, but Cascade may work
-    # -----------------------
-    # PIPELINING RECOMMENDERS
-    # Cascade => use one recommender to produce "course" recs and use another to "refine" the recs => Entree
-    # Meta-Level => use model of a recommender as input to another => Fab
-
+    
 
 def main():
 
@@ -990,7 +954,7 @@ def main():
                     'Enter userid (for ml-100k) or return to quit: ')
 
                 get_TFIDF_recommendations(
-                    prefs, cosim_matrix, user=userID, sim_threshold=0, movies=movies)
+                    prefs, cosim_matrix, user=userID, sim_threshold=SIM_THRESHOLDS[0], movies=movies)
 
             else:
                 print('Empty dictionary, read in some data!')
@@ -999,42 +963,49 @@ def main():
         elif file_io == 'SIM' or file_io == 'sim':
             print()
             if len(prefs) > 0:
-                ready = False # sub command in progress
-                sub_cmd = input('RD(ead) distance or RP(ead) pearson or WD(rite) distance or WP(rite) pearson? ')
+                ready = False  # sub command in progress
+                sub_cmd = input(
+                    'RD(ead) distance or RP(ead) pearson or WD(rite) distance or WP(rite) pearson? ')
                 try:
                     if sub_cmd == 'RD' or sub_cmd == 'rd':
                         # Load the dictionary back from the pickle file.
-                        itemsim = pickle.load(open( "save_itemsim_distance.p", "rb" ))
+                        itemsim = pickle.load(
+                            open("save_itemsim_distance.p", "rb"))
                         sim_method = 'sim_distance'
 
                     elif sub_cmd == 'RP' or sub_cmd == 'rp':
                         # Load the dictionary back from the pickle file.
-                        itemsim = pickle.load(open( "save_itemsim_pearson.p", "rb" ))
+                        itemsim = pickle.load(
+                            open("save_itemsim_pearson.p", "rb"))
                         sim_method = 'sim_pearson'
 
                     elif sub_cmd == 'WD' or sub_cmd == 'wd':
                         # transpose the U-I matrix and calc item-item similarities matrix
-                        itemsim = calculateSimilarItems(prefs,similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
+                        itemsim = calculateSimilarItems(
+                            prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
                         # Dump/save dictionary to a pickle file
-                        pickle.dump(itemsim, open( "save_itemsim_distance.p", "wb" ))
+                        pickle.dump(itemsim, open(
+                            "save_itemsim_distance.p", "wb"))
                         sim_method = 'sim_distance'
 
                     elif sub_cmd == 'WP' or sub_cmd == 'wp':
                         # transpose the U-I matrix and calc item-item similarities matrix
-                        itemsim = calculateSimilarItems(prefs,similarity=sim_pearson, sim_weighting=SIM_WEIGHTING[0])
+                        itemsim = calculateSimilarItems(
+                            prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGHTING[0])
                         # Dump/save dictionary to a pickle file
-                        pickle.dump(itemsim, open( "save_itemsim_pearson.p", "wb" ))
+                        pickle.dump(itemsim, open(
+                            "save_itemsim_pearson.p", "wb"))
                         sim_method = 'sim_pearson'
 
                     else:
                         print("Sim sub-command %s is invalid, try again" % sub_cmd)
                         continue
 
-                    ready = True # sub command completed successfully
+                    ready = True  # sub command completed successfully
 
                 except Exception as ex:
-                    print ('Error!!', ex, '\nNeed to W(rite) a file before you can R(ead) it!'
-                           ' Enter Sim(ilarity matrix) again and choose a Write command')
+                    print('Error!!', ex, '\nNeed to W(rite) a file before you can R(ead) it!'
+                          ' Enter Sim(ilarity matrix) again and choose a Write command')
                     print()
 
         elif file_io == 'HBR' or file_io == 'hbr':
@@ -1042,9 +1013,9 @@ def main():
             # determine the U-I matrix to use
 
             # TODO:
-                # determine best signifance weighting for distance/pearson
-                # determine best hybrid weighting (0.25, 0.50, 0.75)
-                # verify the results of get_hybrid_recommendations
+            # determine best signifance weighting for distance/pearson
+            # determine best hybrid weighting (0.25, 0.50, 0.75)
+            # verify the results of get_hybrid_recommendations
 
             if len(cosim_matrix) > 0:
                 if len(itemsim) > 0:
@@ -1064,7 +1035,8 @@ def main():
                         '''
                         userID = input(
                             'Enter username (for critics) or return to quit: ')
-                        weighting = input('Use weighting of {}? (T or F): '.format(HYBRID_WEIGHTING))
+                        weighting = input(
+                            'Use weighting of {}? (T or F): '.format(HYBRID_WEIGHTING))
                         if weighting == "F" or weighting == "f":
                             print("weighting not selected")
                             get_hybrid_recommendations(
@@ -1091,7 +1063,8 @@ def main():
                         '''
                         userID = input(
                             'Enter userid (for ml-100k) or return to quit: ')
-                        weighting = input('Use weighting of {}? (T or F): '.format(HYBRID_WEIGHTING))
+                        weighting = input(
+                            'Use weighting of {}? (T or F): '.format(HYBRID_WEIGHTING))
                         if weighting == "F" or weighting == "f":
                             print("weighting not selected")
                             get_hybrid_recommendations(
