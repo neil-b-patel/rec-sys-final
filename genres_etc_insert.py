@@ -26,7 +26,9 @@ from math import sqrt
 from matplotlib import pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-
+from sklearn.model_selection import LeaveOneOut
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
 
 # accept all positive similarities > [i] for TF-IDF/ConsineSim Recommender
 SIM_THRESHOLDS = [0, 0.3, 0.5, 0.7]
@@ -395,6 +397,56 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, 
 
     return recs
 
+def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies, n=15):
+    '''
+    Calculates recommendations for a given user
+
+    Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
+        -- user: string containing name of user requesting recommendation
+        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+        -- movies:
+
+    Returns:
+        -- rankings: A list of recommended items with 0 or more tuples,
+           each tuple contains (predicted rating, item name).
+           List is sorted, high to low, by predicted rating.
+           An empty list is returned when no recommendations have been calc'd.
+    '''
+
+    recs = []
+    userRatings = prefs[str(user)]
+
+    for i in range(1, len(movies)+1):
+        if movies[str(i)] in userRatings:
+            continue
+
+        num = 0
+        denom = 0
+        count = 0
+
+        for j in range(1, len(movies) + 1):
+            if movies[str(j)] not in userRatings:
+                continue
+
+            if i == j:
+                continue
+
+            if cosim_matrix[i-1][j-1] < sim_threshold:
+                continue
+
+            num += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
+            denom += cosim_matrix[i-1][j-1]
+            count += 1
+
+        # both?
+        if num > 0 and denom > 0:
+            recs.append((num/denom, movies[str(i)]))
+
+    print(sorted(recs, reverse=True)[:n])
+
+    return recs
 
 def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=15):
     '''
@@ -476,6 +528,87 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=1
 
     return recs
 
+
+#todo
+def get_FE_recommendations_single(prefs, features, movie_title_to_id, movies, user, n=15):
+    '''
+    Calculates recommendations for a given user
+
+    Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- features: an np.array whose height is based on number of items
+                     and width equals the number of unique features (e.g., genre)
+        -- movie_title_to_id: dictionary that maps movie title to movieid
+        -- movies: dictionary that maps movieid to movie title
+        -- user: string containing name of user requesting recommendation
+
+    Returns:
+        -- rankings: A list of recommended items with 0 or more tuples,
+           each tuple contains (predicted rating, item name).
+           List is sorted, high to low, by predicted rating.
+           An empty list is returned when no recommendations have been calc'd.
+
+    '''
+
+    # generate set of total possible ids
+    total_ids = list(range(0, len(features)))
+    total_set = set(total_ids)
+
+    feature_preference = np.copy(features)
+
+    # transform features into the feature_preference matrix
+    feature_preference = feature_preference.astype('float64')
+    rated = set()
+    for movie in prefs[user]:
+        id = (int)(movie_title_to_id[movie])-1
+        feature_preference[id] *= prefs[user][movie]
+        rated.add(id)
+
+    # set subtraction to pull out unrated items
+    unrated_ids = total_set.difference(rated)
+
+    # set unrated rows to 0s
+    for id in unrated_ids:
+        feature_preference[id] *= 0
+
+    # take column wise sum, overall sum, and normalized vector
+    col_sums = np.sum(feature_preference, axis=0)
+    overall_sum = np.sum(feature_preference)
+    norm_vector = col_sums/overall_sum
+
+    recs = []
+
+    # for each unrated item
+    for id in unrated_ids:
+        # multiply features row for item by normalized vector
+        norm_weight = features[id]*norm_vector
+        norm_sum = np.sum(norm_weight)
+
+        # avoid divide by 0 error
+        if norm_sum == 0:
+            continue
+        norm_weight = norm_weight/norm_sum
+
+        # get nonzero count
+        nonzero_count = np.count_nonzero(feature_preference, axis=0)
+
+        # get vector of averages, pass over divide by 0
+        avgs = col_sums/nonzero_count
+
+        # remove irrelevant features
+        avgs *= features[id].astype('float64')
+        weight_avg = avgs*norm_weight
+        final_rec = np.nansum(weight_avg)
+        recs.append((final_rec, movies[str(id+1)]))
+
+        # sort high to low
+        recs = sorted(recs, reverse=True)
+
+        # only return 10
+        if len(recs) > 10:
+            recs = recs[:n]
+
+    return recs
 
 def sim_distance(prefs, p1, p2, sim_weighting=0):
     '''
@@ -734,6 +867,192 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
     # PIPELINING RECOMMENDERS
     # Cascade => use one recommender to produce "course" recs and use another to "refine" the recs => Entree
     # Meta-Level => use model of a recommender as input to another => Fab
+
+
+def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=False, n=15):
+    '''
+    Calculates recommendations for a given user
+
+    Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
+        -- user: string containing name of user requesting recommendation
+        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+        -- movies:
+        -- ii_matrix: pre-computed item-item matrix from a collaborative filtering
+        -- weighted: if true, repalce sim in cosim_matrix with ii_matrix weighted value
+
+    Returns:
+        -- rankings: A list of recommended items with 0 or more tuples,
+           each tuple contains (predicted rating, item name).
+           List is sorted, high to low, by predicted rating.
+           An empty list is returned when no recommendations have been calc'd.
+    '''
+    recs = None
+    userRatings = prefs[str(user)]
+    copy_cosim = deepcopy(cosim_matrix)
+    
+    # iterate through cosim_matrix
+    
+    num = 0
+    denom = 0
+    for j in range(1, len(copy_cosim) + 1):
+        # neighbor movie has not been rated by the user
+        if movies[str(j)] not in userRatings:
+            continue
+
+        # do not compare self to self
+        #excluded as string or int?
+        if int(movies2[excluded]) == j:
+            continue
+
+        # does not meet similarity threshold
+        if copy_cosim[int(movies2[excluded])-1][j-1] < sim_threshold:
+            continue
+
+        # "fill in" similarities of 0 using collaborative filtering item-item similarity matrix
+        if copy_cosim[int(movies2[excluded])-1][j-1] == 0:
+
+            # skip missing titles because there is no similarity
+            if movies[str(j)] not in ii_matrix[excluded]:
+                # print("No similarity found between the titles: {} and {}".format(movies[str(i)], movies[str(j)]))
+                continue
+
+            # replace with corresponding item-item similarity matrix value
+            copy_cosim[int(movies2[excluded])-1][j-1] = ii_matrix[excluded][movies[str(j)]]
+
+            # compute similarity with weighting factor
+            if weighted:
+                copy_cosim[int(movies2[excluded])-1][j-1] *= HYBRID_WEIGHTING
+
+        num += userRatings[movies[str(j)]] * copy_cosim[int(movies2[excluded])-1][j-1]
+        denom += copy_cosim[int(movies2[excluded])-1][j-1]
+        # count += 1
+
+    if num > 0 and denom > 0:
+        return (num/denom, excluded)
+    
+    
+    #Is this correct?
+    return (0, excluded)
+
+
+
+
+
+def loo_cv_sim(prefs,  sim, algo, sim_matrix, itemsim, movies):
+    """
+    Leave-One_Out Evaluation: evaluates recommender system ACCURACY
+     
+     Parameters:
+         prefs dataset: critics, etc.sim
+	 metric: MSE, or MAE, or RMSE
+	 sim: distance, pearson, etc.
+	 algo: user-based recommender, item-based recommender, etc.
+         sim_matrix: pre-computed similarity matrix
+	 
+    Returns:
+         error_total: MSE, or MAE, or RMSE totals for this set of conditions
+	 error_list: list of actual-predicted differences
+    """
+    #getRecommendedItems(prefs,itemMatch,user)
+    #loo_cv(prefs, metric, sim, algo)
+    
+    true_list = []
+    pred_list = []
+    error_list = []
+    count = 0
+    #Start
+    newPrefs = deepcopy(prefs)
+    newMovies = {v: k for k, v in movies.items()}
+    checkCount=0
+    for i in list(prefs.keys()):
+        checker = False
+        for out in list(prefs[i].keys()):
+            sumProd = 0
+            sumSim = 0
+            #if out in list(prefs[i]):
+            save = newPrefs[i][out]
+            del newPrefs[i][out]
+            #(prefs, cosim_matrix, user, sim_threshold, movies, ii_matrix, weighted=False, n=15)
+            
+            rec = algo(newPrefs,sim_matrix, i, SIM_THRESHOLDS[1], movies, newMovies, itemsim, out)
+            newPrefs[i][out] = save
+            
+            
+            if rec[1] == out:
+                        #real.append(prefs[i][k[1]])
+                        #suggested.append(k[0])
+                        #print("Similarity: ",k[0])
+                        #print("Rating: ",prefs[i][k[1]])
+                
+                try:
+                    
+                    error = (prefs[i][rec[1]]-rec[0])**2
+                    error_list.append(error)
+                    true_list.append(prefs[i][rec[1]])
+                    pred_list.append(rec[0])
+                    checker=True
+                    break
+                    
+                except:
+                    break
+        if len(prefs) < 20 or count % 50 == 0:
+            print("User Num: ", count) 
+        count+=1
+        if checker is True:
+            checkCount+=1
+    #End
+    
+    '''
+    for i in list(prefs.keys()):
+        for j in list(sim_matrix.keys()):
+            if j in list(prefs[i]):
+                sumProd = 0
+                sumSim = 0
+                #real = []
+                #suggested = []
+                for k in list(sim_matrix[j]):
+                    if k[1] in prefs[i] and k[0] > 0:
+                        #real.append(prefs[i][k[1]])
+                        #suggested.append(k[0])
+                        #print("Similarity: ",k[0])
+                        #print("Rating: ",prefs[i][k[1]])
+                        sumProd += prefs[i][k[1]]*k[0]
+                        #sumProd += prefs[i][j]*k[0]
+                        sumSim +=abs(k[0])
+                        
+                try:
+                    total = sumProd / sumSim
+                    
+                    error = (prefs[i][j]-total)**2
+                    error_list.append(error)
+                    true_list.append(prefs[i][j])
+                    pred_list.append(total)
+                    print("User: "+i+", Item: "+j+ " Prediction: ", total," Actual: ", prefs[i][j]," Error: ", error)
+                    
+                except:
+                     print("User: "+i+", Item: "+j+ ", No Prediction Available")
+            
+            
+            
+            except:
+                print (key+' NaN')
+            '''
+    
+            
+    '''  
+    loo = LeaveOneOut()
+    loo.get_n_splits(prefs)
+    '''
+    
+    print('MSE: ', mean_squared_error(true_list, pred_list))
+    print('MAE: ',mean_absolute_error(true_list, pred_list))
+    print("RMSE: ", mean_squared_error(true_list, pred_list, squared=False))
+    print("Coverage: ", len(error_list))
+    #Coverage doesn't make sense?
+    print("Coverage PCT: ", len(error_list)/len(prefs))
+    return error_list
 
 
 def main():
@@ -1107,7 +1426,91 @@ def main():
                     print("Oops! Read a (Sim)ilarity Matrix first")
             else:
                 print("Oops! Run TF-IDF first")
-
+                
+        elif file_io == 'LCVSIM' or file_io == 'lcvsim':
+            print()
+            sub_cmd = input('Select Recommender')
+            try:
+                thissim = []
+                '''
+                thissim = []
+                for i in range (len(cosim_matrix)):
+                    thissim[str(i+1)] = {}
+                    for j in range (len(cosim_matrix)):
+                        thissim[str(i+1)][str(j+1)] = cosim_matrix[i][j]
+                
+                
+                elif sub_cmd == 'TFIDF' or sub_cmd == 'tfidf':
+                    algo = get_TFIDF_recommendations
+                    algo_single = get_TFIDF_recommendations_single
+                    thissim = usersim
+                elif sub_cmd == 'FE' or sub_cmd == 'fe':
+                    algo = get_FE_recommendations
+                    algo_single = get_FE_recommendations_single
+                    thissim = usersim
+                '''
+                
+                othersim = itemsim
+                #NEW
+                if sub_cmd == 'HBR' or sub_cmd == 'hbr':
+                    thissim = cosim_matrix
+                    algo= get_hybrid_recommendations_single
+                    
+                
+                else: 
+                    print ('Incorrect Command')
+                 
+                    '''
+                if sub_cmd == 'U' or sub_cmd == 'u':
+                    algo = getRecommendationsSim
+                    thissim = usersim
+                elif sub_cmd == 'I' or sub_cmd == 'i':
+                    algo = getRecommendedItems 
+                    thissim = itemsim
+                ''' 
+                    
+                if len(prefs) > 0 and len(thissim) > 0:             
+                    print('LOO_CV_SIM Evaluation')
+                    
+                    #change?
+                    if len(prefs) == 7:
+                        prefs_name = 'critics'
+                    else:
+                        prefs_name = 'not critics'
+                    '''
+                    metric = input ('Enter error metric: MSE, MAE, RMSE: ')
+                    if metric == 'MSE' or metric == 'MAE' or metric == 'RMSE' or \
+    		        metric == 'mse' or metric == 'mae' or metric == 'rmse':
+                        metric = metric.upper()
+                    else:
+                        metric = 'MSE'
+                    '''
+                    #remove
+                    #algo = getRecommendedItems ## Item-based recommendation
+                    
+                    if sim_method == 'sim_pearson': 
+                        sim = sim_pearson
+                        error_list  = loo_cv_sim(prefs,  sim, algo, thissim, othersim, movies)
+                        print('%s , len(SE list): %d, using %s' 
+    			  % (prefs_name,len(error_list), sim) )
+                        print()
+                    elif sim_method == 'sim_distance':
+                        sim = sim_distance
+                        error_list  = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies)
+                        print('%s:, len(SE list): %d, using %s' 
+    			  % ( prefs_name,  len(error_list), sim) )
+                        print()
+                    else:
+                        print('Run Sim(ilarity matrix) command to create/load Sim matrix!')
+                    if prefs_name == 'critics':
+                        print(error_list)
+                else:
+                    print ('Empty dictionary, run R(ead) OR Empty Sim Matrix, run Sim!')
+                    
+            except Exception as ex:
+                print ('Error!!', ex, '\nNeed to W(rite) a file before you can R(ead) it!'
+                           ' Enter Sim(ilarity matrix) again and choose a Write command')
+                print()
         else:
             done = True
 
