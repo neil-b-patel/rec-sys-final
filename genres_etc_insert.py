@@ -896,28 +896,24 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
     if num > 0 and denom > 0:
         return (num/denom, excluded)
     
-    
     #Is this correct?
     return (0, excluded)
 
 
-
-
-
-def loo_cv_sim(prefs,  sim, algo, sim_matrix, itemsim, movies):
+def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
     """
     Leave-One_Out Evaluation: evaluates recommender system ACCURACY
      
-     Parameters:
-         prefs dataset: critics, etc.sim
-	 metric: MSE, or MAE, or RMSE
-	 sim: distance, pearson, etc.
-	 algo: user-based recommender, item-based recommender, etc.
-         sim_matrix: pre-computed similarity matrix
+    Parameters:
+        -- prefs dataset: critics, etc.sim
+        -- metric: MSE, or MAE, or RMSE
+        -- sim: distance, pearson, etc.
+        -- algo: user-based recommender, item-based recommender, etc.
+        -- sim_matrix: pre-computed similarity matrix
 	 
     Returns:
-         error_total: MSE, or MAE, or RMSE totals for this set of conditions
-	 error_list: list of actual-predicted differences
+        -- error_total: MSE, or MAE, or RMSE totals for this set of conditions
+        -- error_list: list of actual-predicted differences
     """
     #getRecommendedItems(prefs,itemMatch,user)
     #loo_cv(prefs, metric, sim, algo)
@@ -926,96 +922,48 @@ def loo_cv_sim(prefs,  sim, algo, sim_matrix, itemsim, movies):
     pred_list = []
     error_list = []
     count = 0
-    #Start
+
+    # make a deep copy of prefs
     newPrefs = deepcopy(prefs)
+
+    # swap movie ids and titles
     newMovies = {v: k for k, v in movies.items()}
-    checkCount=0
+
     for i in list(prefs.keys()):
         checker = False
+
         for out in list(prefs[i].keys()):
             sumProd = 0
             sumSim = 0
-            #if out in list(prefs[i]):
+
+            # make a copy of item, we will delete
             save = newPrefs[i][out]
-            del newPrefs[i][out]
-            #(prefs, cosim_matrix, user, sim_threshold, movies, ii_matrix, weighted=False, n=15)
-            
-            rec = algo(newPrefs,sim_matrix, i, SIM_THRESHOLDS[1], movies, newMovies, itemsim, out)
+            del newPrefs[i][out]            
+           
+            # get recs for this item
+            rec = algo(newPrefs, sim_matrix, i, SIM_THRESHOLDS[0], movies, newMovies, itemsim, out)
             newPrefs[i][out] = save
-            
-            
+
             if rec[1] == out:
-                        #real.append(prefs[i][k[1]])
-                        #suggested.append(k[0])
-                        #print("Similarity: ",k[0])
-                        #print("Rating: ",prefs[i][k[1]])
-                
                 try:
-                    
                     error = (prefs[i][rec[1]]-rec[0])**2
                     error_list.append(error)
                     true_list.append(prefs[i][rec[1]])
                     pred_list.append(rec[0])
                     checker=True
-                    break
-                    
                 except:
-                    break
+                    continue
+
         if len(prefs) < 20 or count % 50 == 0:
             print("User Num: ", count) 
         count+=1
-        if checker is True:
-            checkCount+=1
-    #End
-    
-    '''
-    for i in list(prefs.keys()):
-        for j in list(sim_matrix.keys()):
-            if j in list(prefs[i]):
-                sumProd = 0
-                sumSim = 0
-                #real = []
-                #suggested = []
-                for k in list(sim_matrix[j]):
-                    if k[1] in prefs[i] and k[0] > 0:
-                        #real.append(prefs[i][k[1]])
-                        #suggested.append(k[0])
-                        #print("Similarity: ",k[0])
-                        #print("Rating: ",prefs[i][k[1]])
-                        sumProd += prefs[i][k[1]]*k[0]
-                        #sumProd += prefs[i][j]*k[0]
-                        sumSim +=abs(k[0])
-                        
-                try:
-                    total = sumProd / sumSim
-                    
-                    error = (prefs[i][j]-total)**2
-                    error_list.append(error)
-                    true_list.append(prefs[i][j])
-                    pred_list.append(total)
-                    print("User: "+i+", Item: "+j+ " Prediction: ", total," Actual: ", prefs[i][j]," Error: ", error)
-                    
-                except:
-                     print("User: "+i+", Item: "+j+ ", No Prediction Available")
-            
-            
-            
-            except:
-                print (key+' NaN')
-            '''
-    
-            
-    '''  
-    loo = LeaveOneOut()
-    loo.get_n_splits(prefs)
-    '''
-    
+
     print('MSE: ', mean_squared_error(true_list, pred_list))
-    print('MAE: ',mean_absolute_error(true_list, pred_list))
+    print('MAE: ', mean_absolute_error(true_list, pred_list))
     print("RMSE: ", mean_squared_error(true_list, pred_list, squared=False))
     print("Coverage: ", len(error_list))
     #Coverage doesn't make sense?
-    print("Coverage PCT: ", len(error_list)/len(prefs))
+    print("Coverage PCT: ", len(error_list)/100000)
     return error_list
 
 
@@ -1040,6 +988,7 @@ def main():
                         'CBR-TF(content-based recommendation TF-IDF/CosineSim)? \n'
                         'SIM(ilarity matrix item-item calculation)? \n'
                         'HBR(content-based recommendation Hybrid)? \n'
+                        'LCVSIM(leave-one-out-cross-validation)? \n'
                         '==>> '
                         )
 
@@ -1339,19 +1288,6 @@ def main():
             if len(cosim_matrix) > 0:
                 if len(itemsim) > 0:
                     if len(prefs) > 0 and len(prefs) <= 10:  # critics
-                        print('critics')
-                        '''
-                        sim_items = calculateSimilarItems(
-                            prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
-                        pearson_items = calculateSimilarItems(
-                            prefs, sim_weighting=SIM_WEIGHTING[0])
-                        method = input(
-                            'Enter D for euclidean distance or P for pearson similarity: ')
-                        if method == 'D' or method == 'd':
-                            ii_matrix = sim_items
-                        else:
-                            ii_matrix = pearson_items
-                        '''
                         userID = input(
                             'Enter username (for critics) or return to quit: ')
                         weighting = input(
@@ -1367,19 +1303,6 @@ def main():
 
                     elif len(prefs) > 10:
                         print('ml-100k')
-                        # sim_items= calculateSimilarItems(
-                        #     prefs, similarity=sim_distance)
-                        # pearson_items= calculateSimilarItems(prefs)
-                        '''
-                        method = input(
-                            'Enter D for euclidean distance or P for pearson similarity: ')
-                        if method == 'D' or method == 'd':
-                            ii_matrix = calculateSimilarItems(
-                                prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
-                        else:
-                            ii_matrix = calculateSimilarItems(
-                                prefs, sim_weighting=SIM_WEIGHTING[0])
-                        '''
                         userID = input(
                             'Enter userid (for ml-100k) or return to quit: ')
                         weighting = input(
@@ -1402,7 +1325,7 @@ def main():
                 
         elif file_io == 'LCVSIM' or file_io == 'lcvsim':
             print()
-            sub_cmd = input('Select Recommender')
+            sub_cmd = input('Select Recommender: ')
             try:
                 thissim = []
                 '''
@@ -1422,66 +1345,36 @@ def main():
                     algo_single = get_FE_recommendations_single
                     thissim = usersim
                 '''
-                
                 othersim = itemsim
-                #NEW
+
                 if sub_cmd == 'HBR' or sub_cmd == 'hbr':
                     thissim = cosim_matrix
-                    algo= get_hybrid_recommendations_single
-                    
-                
+                    algo = get_hybrid_recommendations_single 
                 else: 
                     print ('Incorrect Command')
-                 
-                    '''
-                if sub_cmd == 'U' or sub_cmd == 'u':
-                    algo = getRecommendationsSim
-                    thissim = usersim
-                elif sub_cmd == 'I' or sub_cmd == 'i':
-                    algo = getRecommendedItems 
-                    thissim = itemsim
-                ''' 
-                    
+                
                 if len(prefs) > 0 and len(thissim) > 0:             
                     print('LOO_CV_SIM Evaluation')
-                    
-                    #change?
-                    if len(prefs) == 7:
-                        prefs_name = 'critics'
-                    else:
-                        prefs_name = 'not critics'
-                    '''
-                    metric = input ('Enter error metric: MSE, MAE, RMSE: ')
-                    if metric == 'MSE' or metric == 'MAE' or metric == 'RMSE' or \
-    		        metric == 'mse' or metric == 'mae' or metric == 'rmse':
-                        metric = metric.upper()
-                    else:
-                        metric = 'MSE'
-                    '''
-                    #remove
-                    #algo = getRecommendedItems ## Item-based recommendation
-                    
+
                     if sim_method == 'sim_pearson': 
                         sim = sim_pearson
-                        error_list  = loo_cv_sim(prefs,  sim, algo, thissim, othersim, movies)
-                        print('%s , len(SE list): %d, using %s' 
-    			  % (prefs_name,len(error_list), sim) )
+                        error_list = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies)
+                        print('len(SE list): %d, using %s' 
+    			  % (len(error_list), sim) )
                         print()
                     elif sim_method == 'sim_distance':
                         sim = sim_distance
-                        error_list  = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies)
-                        print('%s:, len(SE list): %d, using %s' 
-    			  % ( prefs_name,  len(error_list), sim) )
+                        error_list = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies)
+                        print('len(SE list): %d, using %s' 
+    			  % ( len(error_list), sim) )
                         print()
                     else:
                         print('Run Sim(ilarity matrix) command to create/load Sim matrix!')
-                    if prefs_name == 'critics':
-                        print(error_list)
                 else:
-                    print ('Empty dictionary, run R(ead) OR Empty Sim Matrix, run Sim!')
+                    print('Empty dictionary, run R(ead) OR Empty Sim Matrix, run Sim!')
                     
             except Exception as ex:
-                print ('Error!!', ex, '\nNeed to W(rite) a file before you can R(ead) it!'
+                print('Error!!', ex, '\nNeed to W(rite) a file before you can R(ead) it!'
                            ' Enter Sim(ilarity matrix) again and choose a Write command')
                 print()
         else:
