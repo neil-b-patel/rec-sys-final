@@ -435,6 +435,7 @@ def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, m
     return (None, excluded)
 
 
+
 def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=15):
     '''
     Calculates recommendations for a given user
@@ -1340,27 +1341,17 @@ def main():
 
                 if sub_cmd == 'HBR' or sub_cmd == 'hbr':
                     thissim = cosim_matrix
-<<<<<<< HEAD
-
                     algo = get_hybrid_recommendations_single 
-=======
-                    algo = get_hybrid_recommendations_single
->>>>>>> 5162ddab2e6e55b29fba6e7d0e93e12d24d218ae
+
                 elif sub_cmd == 'FE' or sub_cmd == 'fe':
                     thissim = features
                     algo = get_FE_recommendations_single
                 elif sub_cmd == 'TFIDF' or sub_cmd == 'tfidf':
                     thissim = cosim_matrix
-<<<<<<< HEAD
                     algo = get_TFIDF_recommendations_single 
                 else: 
-
                     print ('Incorrect Command')
-=======
-                    algo = get_TFIDF_recommendations_single
-                else:
-                    print('Incorrect Command')
->>>>>>> 5162ddab2e6e55b29fba6e7d0e93e12d24d218ae
+
 
                 if len(prefs) > 0 and len(thissim) > 0:
                     print('LOO_CV_SIM Evaluation')
