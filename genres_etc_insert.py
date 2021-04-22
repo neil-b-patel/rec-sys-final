@@ -1346,7 +1346,6 @@ def main():
 
                 if sub_cmd == 'HBR' or sub_cmd == 'hbr':
                     thissim = cosim_matrix
-<<<<<<< HEAD
                     algo = get_hybrid_recommendations_single 
                 elif sub_cmd == 'FE' or sub_cmd == 'fe':
                     thissim = features
@@ -1355,7 +1354,6 @@ def main():
                     thissim = cosim_matrix
                     algo = get_TFIDF_recommendations_single 
                 else: 
-=======
                     print ('Incorrect Command')
 
                 if len(prefs) > 0 and len(thissim) > 0:
