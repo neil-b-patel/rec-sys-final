@@ -713,7 +713,8 @@ def topMatches(prefs, person, similarity=sim_pearson, sim_weighting=0, sim_thres
         score = similarity(prefs, person, other, sim_weighting)
 
         # don't compare me to myself, accept scores above the threshold
-        if other != person and score > sim_threshold:
+        #took our score > sim_threshold here
+        if other != person:
             scores[other] = score
 
     return scores
@@ -808,7 +809,8 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
                 if movies[str(j)] not in ii_matrix[movies[str(i)]]:
                     # print("No similarity found between the titles: {} and {}".format(movies[str(i)], movies[str(j)]))
                     continue
-
+                elif ii_matrix[movies[str(i)]][movies[str(j)]] <= 0:
+                    continue
                 # replace with corresponding item-item similarity matrix value
                 copy_cosim[i-1][j-1] = ii_matrix[movies[str(i)]][movies[str(j)]]
 
@@ -825,7 +827,7 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
 
     print(sorted(recs, reverse=True)[:n])
 
-    
+
 
 def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=False, n=15):
     '''
@@ -849,9 +851,9 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
     recs = None
     userRatings = prefs[str(user)]
     copy_cosim = deepcopy(cosim_matrix)
-    
+
     # iterate through cosim_matrix
-    
+
     num = 0
     denom = 0
     for j in range(1, len(copy_cosim) + 1):
@@ -889,7 +891,7 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
 
     if num > 0 and denom > 0:
         return (num/denom, excluded)
-    
+
     #Is this correct?
     return (None, excluded)
 
@@ -897,21 +899,21 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
 def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
     """
     Leave-One_Out Evaluation: evaluates recommender system ACCURACY
-     
+
     Parameters:
         -- prefs dataset: critics, etc.sim
         -- metric: MSE, or MAE, or RMSE
         -- sim: distance, pearson, etc.
         -- algo: user-based recommender, item-based recommender, etc.
         -- sim_matrix: pre-computed similarity matrix
-	 
+
     Returns:
         -- error_total: MSE, or MAE, or RMSE totals for this set of conditions
         -- error_list: list of actual-predicted differences
     """
     #getRecommendedItems(prefs,itemMatch,user)
     #loo_cv(prefs, metric, sim, algo)
-    
+
     true_list = []
     pred_list = []
     error_list = []
@@ -932,8 +934,8 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
 
             # make a copy of item, we will delete
             save = newPrefs[i][out]
-            del newPrefs[i][out]            
-           
+            del newPrefs[i][out]
+
             # get recs for this item
             rec = algo(newPrefs, sim_matrix, i, SIM_THRESHOLDS[0], movies, newMovies, itemsim, out)
             newPrefs[i][out] = save
@@ -950,7 +952,7 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
             
 
         if len(prefs) < 20 or count % 50 == 0:
-            print("User Num: ", count) 
+            print("User Num: ", count)
         count+=1
 
     print('MSE: ', mean_squared_error(true_list, pred_list))
@@ -1317,7 +1319,7 @@ def main():
                     print("Oops! Read a (Sim)ilarity Matrix first")
             else:
                 print("Oops! Run TF-IDF first")
-                
+
         elif file_io == 'LCVSIM' or file_io == 'lcvsim':
             print()
             sub_cmd = input('Select Recommender: ')
@@ -1329,8 +1331,8 @@ def main():
                     thissim[str(i+1)] = {}
                     for j in range (len(cosim_matrix)):
                         thissim[str(i+1)][str(j+1)] = cosim_matrix[i][j]
-                
-                
+
+
                 elif sub_cmd == 'TFIDF' or sub_cmd == 'tfidf':
                     algo = get_TFIDF_recommendations
                     algo_single = get_TFIDF_recommendations_single
@@ -1344,6 +1346,7 @@ def main():
 
                 if sub_cmd == 'HBR' or sub_cmd == 'hbr':
                     thissim = cosim_matrix
+<<<<<<< HEAD
                     algo = get_hybrid_recommendations_single 
                 elif sub_cmd == 'FE' or sub_cmd == 'fe':
                     thissim = features
@@ -1352,28 +1355,29 @@ def main():
                     thissim = cosim_matrix
                     algo = get_TFIDF_recommendations_single 
                 else: 
+=======
                     print ('Incorrect Command')
-                
-                if len(prefs) > 0 and len(thissim) > 0:             
+
+                if len(prefs) > 0 and len(thissim) > 0:
                     print('LOO_CV_SIM Evaluation')
 
-                    if sim_method == 'sim_pearson': 
+                    if sim_method == 'sim_pearson':
                         sim = sim_pearson
                         error_list = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies)
-                        print('len(SE list): %d, using %s' 
+                        print('len(SE list): %d, using %s'
     			  % (len(error_list), sim) )
                         print()
                     elif sim_method == 'sim_distance':
                         sim = sim_distance
                         error_list = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies)
-                        print('len(SE list): %d, using %s' 
+                        print('len(SE list): %d, using %s'
     			  % ( len(error_list), sim) )
                         print()
                     else:
                         print('Run Sim(ilarity matrix) command to create/load Sim matrix!')
                 else:
                     print('Empty dictionary, run R(ead) OR Empty Sim Matrix, run Sim!')
-                    
+
             except Exception as ex:
                 print('Error!!', ex, '\nNeed to W(rite) a file before you can R(ead) it!'
                            ' Enter Sim(ilarity matrix) again and choose a Write command')
