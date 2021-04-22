@@ -344,6 +344,7 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, 
         -- user: string containing name of user requesting recommendation
         -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
         -- movies:
+        -- n:
 
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples,
@@ -361,7 +362,6 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, 
 
         num = 0
         denom = 0
-        # count = 0
 
         for j in range(1, len(movies) + 1):
             if movies[str(j)] not in userRatings:
@@ -375,7 +375,6 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, 
 
             num += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
             denom += cosim_matrix[i-1][j-1]
-            # count += 1
 
         if num > 0 and denom > 0:
             recs.append((num/denom, movies[str(i)]))
@@ -385,7 +384,7 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, 
     return recs
 
 
-def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies,  movies2, ii_matrix, excluded, weighted=False,n=15):
+def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies,  movies2, ii_matrix, excluded, weighted=False):
     '''
     Calculates recommendations for a given user
 
@@ -395,6 +394,10 @@ def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, m
         -- user: string containing name of user requesting recommendation
         -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
         -- movies:
+        -- movies2:
+        -- ii_matrix:
+        -- excluded:
+        -- weighted:
 
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples,
@@ -403,9 +406,8 @@ def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, m
            An empty list is returned when no recommendations have been calc'd.
     '''
 
-    recs = []
+    
     userRatings = prefs[str(user)]
-
 
     num = 0
     denom = 0
@@ -415,14 +417,14 @@ def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, m
         if movies[str(j)] not in userRatings:
             continue
 
-        if int(movies2[excluded])== j:
+        if int(movies2[excluded]) == j:
             continue
-        
-        
+
         if cosim_matrix[int(movies2[excluded])-1][j-1] < sim_threshold:
             continue
 
-        num += userRatings[movies[str(j)]]*cosim_matrix[int(movies2[excluded])-1][j-1]
+        num += userRatings[movies[str(j)]] * \
+            cosim_matrix[int(movies2[excluded])-1][j-1]
         denom += cosim_matrix[int(movies2[excluded])-1][j-1]
         count += 1
 
@@ -430,7 +432,8 @@ def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, m
     if num > 0 and denom > 0:
         return (num/denom, excluded)
 
-    return (0, excluded)
+    return (None, excluded)
+
 
 def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=15):
     '''
@@ -443,6 +446,7 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=1
         -- movie_title_to_id: dictionary that maps movie title to movieid
         -- movies: dictionary that maps movieid to movie title
         -- user: string containing name of user requesting recommendation
+        -- n:
 
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples,
@@ -513,8 +517,7 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=1
     return recs
 
 
-#
-def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=False, n=15):
+def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=False):
     '''
     Calculates recommendations for a given user
 
@@ -522,9 +525,13 @@ def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, 
         -- prefs: dictionary containing user-item matrix
         -- features: an np.array whose height is based on number of items
                      and width equals the number of unique features (e.g., genre)
-        -- movie_title_to_id: dictionary that maps movie title to movieid
-        -- movies: dictionary that maps movieid to movie title
         -- user: string containing name of user requesting recommendation
+        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+        -- movies:
+        -- movies2:
+        -- ii_matrix:
+        -- excluded:
+        -- weighted:
 
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples,
@@ -562,7 +569,6 @@ def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, 
 
     rec = None
 
-    
     # multiply features row for item by normalized vector
     norm_weight = features[int(movies2[excluded])-1]*norm_vector
     norm_sum = np.sum(norm_weight)
@@ -572,24 +578,23 @@ def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, 
         return (None, excluded)
     try:
         norm_weight = norm_weight/norm_sum
-    
+
         # get nonzero count
         nonzero_count = np.count_nonzero(feature_preference, axis=0)
-    
+
         # get vector of averages, pass over divide by 0
         avgs = col_sums/nonzero_count
-    
+
         # remove irrelevant features
         avgs *= features[int(movies2[excluded])-1].astype('float64')
         weight_avg = avgs*norm_weight
         final_rec = np.nansum(weight_avg)
-        rec=(final_rec, excluded)
+        rec = (final_rec, excluded)
     except:
         return (None, excluded)
 
-    
-
     return rec
+
 
 def sim_distance(prefs, p1, p2, sim_weighting=0):
     '''
@@ -601,6 +606,7 @@ def sim_distance(prefs, p1, p2, sim_weighting=0):
         -- p2: string containing name of user 2
         -- sim_weighting: similarity significance weighting factor (0, 25, 50)
                           [default is 0, which represents No Weighting]
+    
     Returns:
         -- Euclidean distance similarity as a float
     '''
@@ -622,7 +628,6 @@ def sim_distance(prefs, p1, p2, sim_weighting=0):
     distance_sim = 1/(1+sqrt(sum_of_squares))
 
     # apply significance weighting, if any
-
     if sim_weighting != 0:
         if len(si) < sim_weighting:
             distance_sim *= (len(si) / sim_weighting)
@@ -640,6 +645,7 @@ def sim_pearson(prefs, p1, p2, sim_weighting=0):
         -- p2: string containing name of user 2
         -- sim_weighting: similarity significance weighting factor (0, 25, 50)
                           [default is 0, which represents No Weighting]
+    
     Returns:
         -- Pearson Correlation similarity as a float
     '''
@@ -698,13 +704,13 @@ def topMatches(prefs, person, similarity=sim_pearson, sim_weighting=0, sim_thres
                           [default is 0, which represents No Weighting]
         -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
 
-
     Returns:
         -- A list of similar matches with 0 or more tuples,
            each tuple contains (similarity, item name).
            List is sorted, high to low, by similarity.
            An empty list is returned when no matches have been calc'd.
     '''
+
     scores = {}
 
     # iterate through users in prefs
@@ -713,7 +719,7 @@ def topMatches(prefs, person, similarity=sim_pearson, sim_weighting=0, sim_thres
         score = similarity(prefs, person, other, sim_weighting)
 
         # don't compare me to myself, accept scores above the threshold
-        #took our score > sim_threshold here
+        # took our score > sim_threshold here
         if other != person:
             scores[other] = score
 
@@ -828,8 +834,7 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
     print(sorted(recs, reverse=True)[:n])
 
 
-
-def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=False, n=15):
+def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=True, n=15):
     '''
     Calculates recommendations for a given user
 
@@ -848,21 +853,20 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
            List is sorted, high to low, by predicted rating.
            An empty list is returned when no recommendations have been calc'd.
     '''
-    recs = None
     userRatings = prefs[str(user)]
     copy_cosim = deepcopy(cosim_matrix)
-
-    # iterate through cosim_matrix
-
+    
     num = 0
     denom = 0
+
+    # iterate through cosim_matrix
     for j in range(1, len(copy_cosim) + 1):
         # neighbor movie has not been rated by the user
         if movies[str(j)] not in userRatings:
             continue
 
         # do not compare self to self
-        #excluded as string or int?
+        # excluded as string or int?
         if int(movies2[excluded]) == j:
             continue
 
@@ -875,7 +879,6 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
 
             # skip missing titles because there is no similarity
             if movies[str(j)] not in ii_matrix[excluded]:
-                # print("No similarity found between the titles: {} and {}".format(movies[str(i)], movies[str(j)]))
                 continue
 
             # replace with corresponding item-item similarity matrix value
@@ -892,7 +895,7 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
     if num > 0 and denom > 0:
         return (num/denom, excluded)
 
-    #Is this correct?
+    # Is this correct?
     return (None, excluded)
 
 
@@ -902,17 +905,16 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
 
     Parameters:
         -- prefs dataset: critics, etc.sim
-        -- metric: MSE, or MAE, or RMSE
         -- sim: distance, pearson, etc.
         -- algo: user-based recommender, item-based recommender, etc.
         -- sim_matrix: pre-computed similarity matrix
+        -- itemsim:
+        -- movies:
 
     Returns:
         -- error_total: MSE, or MAE, or RMSE totals for this set of conditions
         -- error_list: list of actual-predicted differences
     """
-    #getRecommendedItems(prefs,itemMatch,user)
-    #loo_cv(prefs, metric, sim, algo)
 
     true_list = []
     pred_list = []
@@ -937,35 +939,34 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
             del newPrefs[i][out]
 
             # get recs for this item
-            rec = algo(newPrefs, sim_matrix, i, SIM_THRESHOLDS[0], movies, newMovies, itemsim, out)
+            rec = algo(newPrefs, sim_matrix, i,
+                       SIM_THRESHOLDS[0], movies, newMovies, itemsim, out)
             newPrefs[i][out] = save
-
-            if rec[1] == out and rec[0] != None:
+            
+            #Rec != 0?
+            if rec[1] == out and rec[0] != None and rec[0] != 0:
                 try:
                     error = (prefs[i][rec[1]]-rec[0])**2
                     error_list.append(error)
                     true_list.append(prefs[i][rec[1]])
                     pred_list.append(rec[0])
-                    checker=True
+                    checker = True
                 except:
                     continue
-            
 
         if len(prefs) < 20 or count % 50 == 0:
             print("User Num: ", count)
-        count+=1
+        count += 1
 
     print('MSE: ', mean_squared_error(true_list, pred_list))
     print('MAE: ', mean_absolute_error(true_list, pred_list))
     print("RMSE: ", mean_squared_error(true_list, pred_list, squared=False))
     print("Coverage: ", len(error_list))
-    #Coverage doesn't make sense?
     print("Coverage PCT: ", len(error_list)/100000)
     return error_list
 
 
 def main():
-
     # Load critics dict from file
     path = os.getcwd()  # this gets the current working directory
     # you can customize path for your own computer here
@@ -1217,7 +1218,6 @@ def main():
                 print('ml-100k')
                 userID = input(
                     'Enter userid (for ml-100k) or return to quit: ')
-
                 get_TFIDF_recommendations(
                     prefs, cosim_matrix, user=userID, sim_threshold=SIM_THRESHOLDS[0], movies=movies)
 
@@ -1276,12 +1276,6 @@ def main():
         elif file_io == 'HBR' or file_io == 'hbr':
             print()
             # determine the U-I matrix to use
-
-            # TODO:
-            # determine best signifance weighting for distance/pearson
-            # determine best hybrid weighting (0.25, 0.50, 0.75)
-            # verify the results of get_hybrid_recommendations
-
             if len(cosim_matrix) > 0:
                 if len(itemsim) > 0:
                     if len(prefs) > 0 and len(prefs) <= 10:  # critics
@@ -1322,7 +1316,7 @@ def main():
 
         elif file_io == 'LCVSIM' or file_io == 'lcvsim':
             print()
-            sub_cmd = input('Select Recommender: ')
+            sub_cmd = input('Select Recommender: FE, TFIDF, HBR')
             try:
                 thissim = []
                 '''
@@ -1347,40 +1341,53 @@ def main():
                 if sub_cmd == 'HBR' or sub_cmd == 'hbr':
                     thissim = cosim_matrix
 <<<<<<< HEAD
+
                     algo = get_hybrid_recommendations_single 
+=======
+                    algo = get_hybrid_recommendations_single
+>>>>>>> 5162ddab2e6e55b29fba6e7d0e93e12d24d218ae
                 elif sub_cmd == 'FE' or sub_cmd == 'fe':
                     thissim = features
-                    algo = get_FE_recommendations_single 
+                    algo = get_FE_recommendations_single
                 elif sub_cmd == 'TFIDF' or sub_cmd == 'tfidf':
                     thissim = cosim_matrix
+<<<<<<< HEAD
                     algo = get_TFIDF_recommendations_single 
                 else: 
-=======
+
                     print ('Incorrect Command')
+=======
+                    algo = get_TFIDF_recommendations_single
+                else:
+                    print('Incorrect Command')
+>>>>>>> 5162ddab2e6e55b29fba6e7d0e93e12d24d218ae
 
                 if len(prefs) > 0 and len(thissim) > 0:
                     print('LOO_CV_SIM Evaluation')
 
                     if sim_method == 'sim_pearson':
                         sim = sim_pearson
-                        error_list = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies)
+                        error_list = loo_cv_sim(
+                            prefs, sim, algo, thissim, othersim, movies)
                         print('len(SE list): %d, using %s'
-    			  % (len(error_list), sim) )
+                              % (len(error_list), sim))
                         print()
                     elif sim_method == 'sim_distance':
                         sim = sim_distance
-                        error_list = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies)
+                        error_list = loo_cv_sim(
+                            prefs, sim, algo, thissim, othersim, movies)
                         print('len(SE list): %d, using %s'
-    			  % ( len(error_list), sim) )
+                              % (len(error_list), sim))
                         print()
                     else:
-                        print('Run Sim(ilarity matrix) command to create/load Sim matrix!')
+                        print(
+                            'Run Sim(ilarity matrix) command to create/load Sim matrix!')
                 else:
                     print('Empty dictionary, run R(ead) OR Empty Sim Matrix, run Sim!')
 
             except Exception as ex:
                 print('Error!!', ex, '\nNeed to W(rite) a file before you can R(ead) it!'
-                           ' Enter Sim(ilarity matrix) again and choose a Write command')
+                      ' Enter Sim(ilarity matrix) again and choose a Write command')
                 print()
         else:
             done = True
