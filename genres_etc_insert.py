@@ -384,7 +384,8 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, 
 
     return recs
 
-def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies, n=15):
+
+def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies,  movies2, ii_matrix, excluded, weighted=False,n=15):
     '''
     Calculates recommendations for a given user
 
@@ -405,35 +406,31 @@ def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, m
     recs = []
     userRatings = prefs[str(user)]
 
-    for i in range(1, len(movies)+1):
-        if movies[str(i)] in userRatings:
+
+    num = 0
+    denom = 0
+    count = 0
+
+    for j in range(1, len(movies) + 1):
+        if movies[str(j)] not in userRatings:
             continue
 
-        num = 0
-        denom = 0
-        count = 0
+        if int(movies2[excluded])== j:
+            continue
+        
+        
+        if cosim_matrix[int(movies2[excluded])-1][j-1] < sim_threshold:
+            continue
 
-        for j in range(1, len(movies) + 1):
-            if movies[str(j)] not in userRatings:
-                continue
+        num += userRatings[movies[str(j)]]*cosim_matrix[int(movies2[excluded])-1][j-1]
+        denom += cosim_matrix[int(movies2[excluded])-1][j-1]
+        count += 1
 
-            if i == j:
-                continue
+    # both?
+    if num > 0 and denom > 0:
+        return (num/denom, excluded)
 
-            if cosim_matrix[i-1][j-1] < sim_threshold:
-                continue
-
-            num += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
-            denom += cosim_matrix[i-1][j-1]
-            count += 1
-
-        # both?
-        if num > 0 and denom > 0:
-            recs.append((num/denom, movies[str(i)]))
-
-    print(sorted(recs, reverse=True)[:n])
-
-    return recs
+    return (0, excluded)
 
 def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=15):
     '''
@@ -516,8 +513,8 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=1
     return recs
 
 
-#todo
-def get_FE_recommendations_single(prefs, features, movie_title_to_id, movies, user, n=15):
+#
+def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=False, n=15):
     '''
     Calculates recommendations for a given user
 
@@ -547,7 +544,7 @@ def get_FE_recommendations_single(prefs, features, movie_title_to_id, movies, us
     feature_preference = feature_preference.astype('float64')
     rated = set()
     for movie in prefs[user]:
-        id = (int)(movie_title_to_id[movie])-1
+        id = (int)(movies2[movie])-1
         feature_preference[id] *= prefs[user][movie]
         rated.add(id)
 
@@ -563,39 +560,36 @@ def get_FE_recommendations_single(prefs, features, movie_title_to_id, movies, us
     overall_sum = np.sum(feature_preference)
     norm_vector = col_sums/overall_sum
 
-    recs = []
+    rec = None
 
-    # for each unrated item
-    for id in unrated_ids:
-        # multiply features row for item by normalized vector
-        norm_weight = features[id]*norm_vector
-        norm_sum = np.sum(norm_weight)
+    
+    # multiply features row for item by normalized vector
+    norm_weight = features[int(movies2[excluded])-1]*norm_vector
+    norm_sum = np.sum(norm_weight)
 
-        # avoid divide by 0 error
-        if norm_sum == 0:
-            continue
+    # Is this correct?
+    if norm_sum == 0:
+        return (None, excluded)
+    try:
         norm_weight = norm_weight/norm_sum
-
+    
         # get nonzero count
         nonzero_count = np.count_nonzero(feature_preference, axis=0)
-
+    
         # get vector of averages, pass over divide by 0
         avgs = col_sums/nonzero_count
-
+    
         # remove irrelevant features
-        avgs *= features[id].astype('float64')
+        avgs *= features[int(movies2[excluded])-1].astype('float64')
         weight_avg = avgs*norm_weight
         final_rec = np.nansum(weight_avg)
-        recs.append((final_rec, movies[str(id+1)]))
+        rec=(final_rec, excluded)
+    except:
+        return (None, excluded)
 
-        # sort high to low
-        recs = sorted(recs, reverse=True)
+    
 
-        # only return 10
-        if len(recs) > 10:
-            recs = recs[:n]
-
-    return recs
+    return rec
 
 def sim_distance(prefs, p1, p2, sim_weighting=0):
     '''
@@ -897,7 +891,7 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
         return (num/denom, excluded)
     
     #Is this correct?
-    return (0, excluded)
+    return (None, excluded)
 
 
 def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
@@ -944,7 +938,7 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
             rec = algo(newPrefs, sim_matrix, i, SIM_THRESHOLDS[0], movies, newMovies, itemsim, out)
             newPrefs[i][out] = save
 
-            if rec[1] == out:
+            if rec[1] == out and rec[0] != None:
                 try:
                     error = (prefs[i][rec[1]]-rec[0])**2
                     error_list.append(error)
@@ -953,6 +947,7 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
                     checker=True
                 except:
                     continue
+            
 
         if len(prefs) < 20 or count % 50 == 0:
             print("User Num: ", count) 
@@ -1350,6 +1345,12 @@ def main():
                 if sub_cmd == 'HBR' or sub_cmd == 'hbr':
                     thissim = cosim_matrix
                     algo = get_hybrid_recommendations_single 
+                elif sub_cmd == 'FE' or sub_cmd == 'fe':
+                    thissim = features
+                    algo = get_FE_recommendations_single 
+                elif sub_cmd == 'TFIDF' or sub_cmd == 'tfidf':
+                    thissim = cosim_matrix
+                    algo = get_TFIDF_recommendations_single 
                 else: 
                     print ('Incorrect Command')
                 
