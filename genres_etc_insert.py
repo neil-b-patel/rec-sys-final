@@ -406,7 +406,7 @@ def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, m
            An empty list is returned when no recommendations have been calc'd.
     '''
 
-    
+
     userRatings = prefs[str(user)]
 
     num = 0
@@ -607,7 +607,7 @@ def sim_distance(prefs, p1, p2, sim_weighting=0):
         -- p2: string containing name of user 2
         -- sim_weighting: similarity significance weighting factor (0, 25, 50)
                           [default is 0, which represents No Weighting]
-    
+
     Returns:
         -- Euclidean distance similarity as a float
     '''
@@ -646,7 +646,7 @@ def sim_pearson(prefs, p1, p2, sim_weighting=0):
         -- p2: string containing name of user 2
         -- sim_weighting: similarity significance weighting factor (0, 25, 50)
                           [default is 0, which represents No Weighting]
-    
+
     Returns:
         -- Pearson Correlation similarity as a float
     '''
@@ -693,7 +693,7 @@ def sim_pearson(prefs, p1, p2, sim_weighting=0):
         return 0
 
 
-def topMatches(prefs, person, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
+def topMatches(prefs, person,n=100, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
     '''
     Returns the best matches for person from the prefs dictionary
 
@@ -712,19 +712,24 @@ def topMatches(prefs, person, similarity=sim_pearson, sim_weighting=0, sim_thres
            An empty list is returned when no matches have been calc'd.
     '''
 
-    scores = {}
-
+    scores = []
+    scores_dict = {}
     # iterate through users in prefs
     for other in prefs:
         # calculate similarity score
         score = similarity(prefs, person, other, sim_weighting)
 
         # don't compare me to myself, accept scores above the threshold
-        # took our score > sim_threshold here
+        # took out score > sim_threshold here
         if other != person:
-            scores[other] = score
-
-    return scores
+            scores.append((score, other))
+    scores = sorted(scores, reverse = True)
+    scores = scores[:n]
+    #print(scores)
+    for i in range(len(scores)):
+        scores_dict[scores[i][1]] = scores[i][0]
+    #print(scores_dict)
+    return scores_dict
 
 
 def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGHTING[1], sim_threshold=0):
@@ -756,7 +761,7 @@ def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGH
             print("%d%% complete" % (percent_complete))
 
         # Find the most similar items to this one
-        scores = topMatches(itemPrefs, item, similarity,
+        scores = topMatches(itemPrefs, item,100, similarity,
                             sim_weighting, sim_threshold)
         result[item] = scores
 
@@ -856,7 +861,7 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
     '''
     userRatings = prefs[str(user)]
     copy_cosim = deepcopy(cosim_matrix)
-    
+
     num = 0
     denom = 0
 
@@ -943,7 +948,7 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
             rec = algo(newPrefs, sim_matrix, i,
                        SIM_THRESHOLDS[0], movies, newMovies, itemsim, out)
             newPrefs[i][out] = save
-            
+
             #Rec != 0?
             if rec[1] == out and rec[0] != None and rec[0] != 0:
                 try:
@@ -1248,7 +1253,7 @@ def main():
                     elif sub_cmd == 'WD' or sub_cmd == 'wd':
                         # transpose the U-I matrix and calc item-item similarities matrix
                         itemsim = calculateSimilarItems(
-                            prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0])
+                            prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING[0],sim_threshold=0)
                         # Dump/save dictionary to a pickle file
                         pickle.dump(itemsim, open(
                             "save_itemsim_distance.p", "wb"))
@@ -1257,7 +1262,7 @@ def main():
                     elif sub_cmd == 'WP' or sub_cmd == 'wp':
                         # transpose the U-I matrix and calc item-item similarities matrix
                         itemsim = calculateSimilarItems(
-                            prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGHTING[0])
+                            prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGHTING[0],sim_threshold=0)
                         # Dump/save dictionary to a pickle file
                         pickle.dump(itemsim, open(
                             "save_itemsim_pearson.p", "wb"))
@@ -1341,15 +1346,15 @@ def main():
 
                 if sub_cmd == 'HBR' or sub_cmd == 'hbr':
                     thissim = cosim_matrix
-                    algo = get_hybrid_recommendations_single 
+                    algo = get_hybrid_recommendations_single
 
                 elif sub_cmd == 'FE' or sub_cmd == 'fe':
                     thissim = features
                     algo = get_FE_recommendations_single
                 elif sub_cmd == 'TFIDF' or sub_cmd == 'tfidf':
                     thissim = cosim_matrix
-                    algo = get_TFIDF_recommendations_single 
-                else: 
+                    algo = get_TFIDF_recommendations_single
+                else:
                     print ('Incorrect Command')
 
 
