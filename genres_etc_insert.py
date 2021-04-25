@@ -905,7 +905,7 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
     return (None, excluded)
 
 
-def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
+def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies,sim_threshold,ws,r):
     """
     Leave-One_Out Evaluation: evaluates recommender system ACCURACY
 
@@ -970,6 +970,15 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
     print("Coverage: ", len(error_list))
     print("Coverage PCT: ", len(error_list)/100000)
     return error_list
+    #excel transfer
+    ws[col_name(COLUMN)+ str(r)].value = algo
+    ws[col_name(COLUMN+1)+ str(r)].value = sim
+    ws[col_name(COLUMN+2) + str(r)].value = sim_threshold
+    ws[col_name(COLUMN+3)+ str(r)].value = mean_squared_error(true_list, pred_list)
+    ws[col_name(COLUMN+4)+ str(r)].value = mean_squared_error(true_list, pred_list, squared=False)
+    ws[col_name(COLUMN+5) + str(r)].value =  mean_absolute_error(true_list, pred_list)
+    ws[col_name(COLUMN+6)+ str(r)].value = len(error_list)/100000
+
 
 
 def main():
@@ -982,6 +991,11 @@ def main():
     done = False
     cosim_matrix = []
     itemsim = {}
+    #open excel file in case writing from LCVSIM
+    dest = "CSC_381_ALS_Results.xlsx"
+    wb = load_workbook(filename = dest)
+    ws = wb.create_sheet('results')
+    row = 1
     while not done:
         print()
         file_io = input('R(ead) critics data from file?, \n'
@@ -1363,18 +1377,21 @@ def main():
 
                     if sim_method == 'sim_pearson':
                         sim = sim_pearson
-                        error_list = loo_cv_sim(
-                            prefs, sim, algo, thissim, othersim, movies)
-                        print('len(SE list): %d, using %s'
-                              % (len(error_list), sim))
-                        print()
+                        for t in SIM_THRESHOLDS:
+                            error_list = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies,t,ws,row)
+                            print('len(SE list): %d, using %s'         % (len(error_list), sim) )
+                            print()
+                            row += 1
+                        wb.save(dest)
+
                     elif sim_method == 'sim_distance':
                         sim = sim_distance
-                        error_list = loo_cv_sim(
-                            prefs, sim, algo, thissim, othersim, movies)
-                        print('len(SE list): %d, using %s'
-                              % (len(error_list), sim))
-                        print()
+                        for t in SIM_THRESHOLDS:
+                            error_list = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies,t,ws,row)
+                            print('len(SE list): %d, using %s'% ( len(error_list), sim) )
+                            print()
+                            row += 1
+                        wb.save(dest)
                     else:
                         print(
                             'Run Sim(ilarity matrix) command to create/load Sim matrix!')
