@@ -36,9 +36,8 @@ from sklearn.metrics import mean_absolute_error
 SIM_THRESHOLDS = [0, 0.3, 0.5, 0.7]
 SIM_WEIGHTING = [0, 25, 50]
 
-# haven't tested extensively, but we went with 0.5 b/c of
-# a nice blend of previous CBR results and novel recommendations
-HYBRID_WEIGHTING = 0.5
+# we went with 0.75 b/c of better accuracy metrics with LOOCV
+HYBRID_WEIGHTING = 0.75
 
 
 def from_file_to_2D(path, genrefile, itemfile):
@@ -384,7 +383,7 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, 
     return recs
 
 
-def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies,  movies2, ii_matrix, excluded, weighted=False):
+def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies,  movies2, ii_matrix, excluded):
     '''
     Calculates recommendations for a given user
 
@@ -397,7 +396,6 @@ def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, m
         -- movies2:
         -- ii_matrix:
         -- excluded:
-        -- weighted:
 
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples,
@@ -518,7 +516,7 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=1
     return recs
 
 
-def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=False):
+def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, movies2, ii_matrix, excluded):
     '''
     Calculates recommendations for a given user
 
@@ -532,7 +530,6 @@ def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, 
         -- movies2:
         -- ii_matrix:
         -- excluded:
-        -- weighted:
 
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples,
@@ -911,7 +908,7 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
     return (None, excluded)
 
 
-def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
+def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies,sim_threshold,ws,r):
     """
     Leave-One_Out Evaluation: evaluates recommender system ACCURACY
 
@@ -976,6 +973,15 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies):
     print("Coverage: ", len(error_list))
     print("Coverage PCT: ", len(error_list)/100000)
     return error_list
+    #excel transfer
+    ws["A"+ str(r)].value = algo
+    ws["B"+ str(r)].value = sim
+    ws["C" + str(r)].value = sim_threshold
+    ws["D"+ str(r)].value = mean_squared_error(true_list, pred_list)
+    ws["E"+ str(r)].value = mean_squared_error(true_list, pred_list, squared=False)
+    ws["F" + str(r)].value =  mean_absolute_error(true_list, pred_list)
+    ws["G"+ str(r)].value = len(error_list)/100000
+
 
 
 def main():
@@ -988,6 +994,11 @@ def main():
     done = False
     cosim_matrix = []
     itemsim = {}
+    #open excel file in case writing from LCVSIM
+    dest = "CSC_381_ALS_Results.xlsx"
+    wb = load_workbook(filename = dest)
+    ws = wb.create_sheet('results')
+    row = 1
     while not done:
         print()
         file_io = input('R(ead) critics data from file?, \n'
@@ -1328,7 +1339,7 @@ def main():
 
         elif file_io == 'LCVSIM' or file_io == 'lcvsim':
             print()
-            sub_cmd = input('Select Recommender: FE, TFIDF, HBR')
+            sub_cmd = input('Select Recommender (FE, TFIDF, HBR): ')
             try:
                 thissim = []
                 '''
@@ -1369,18 +1380,21 @@ def main():
 
                     if sim_method == 'sim_pearson':
                         sim = sim_pearson
-                        error_list = loo_cv_sim(
-                            prefs, sim, algo, thissim, othersim, movies)
-                        print('len(SE list): %d, using %s'
-                              % (len(error_list), sim))
-                        print()
+                        for t in SIM_THRESHOLDS:
+                            error_list = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies,t,ws,row)
+                            print('len(SE list): %d, using %s'         % (len(error_list), sim) )
+                            print()
+                            row += 1
+                        wb.save(dest)
+
                     elif sim_method == 'sim_distance':
                         sim = sim_distance
-                        error_list = loo_cv_sim(
-                            prefs, sim, algo, thissim, othersim, movies)
-                        print('len(SE list): %d, using %s'
-                              % (len(error_list), sim))
-                        print()
+                        for t in SIM_THRESHOLDS:
+                            error_list = loo_cv_sim(prefs, sim, algo, thissim, othersim, movies,t,ws,row)
+                            print('len(SE list): %d, using %s'% ( len(error_list), sim) )
+                            print()
+                            row += 1
+                        wb.save(dest)
                     else:
                         print(
                             'Run Sim(ilarity matrix) command to create/load Sim matrix!')
