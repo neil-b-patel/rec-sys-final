@@ -971,13 +971,13 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies,sim_threshold,ws,r)
     print("Coverage PCT: ", len(error_list)/100000)
     return error_list
     #excel transfer
-    ws[col_name(COLUMN)+ str(r)].value = algo
-    ws[col_name(COLUMN+1)+ str(r)].value = sim
-    ws[col_name(COLUMN+2) + str(r)].value = sim_threshold
-    ws[col_name(COLUMN+3)+ str(r)].value = mean_squared_error(true_list, pred_list)
-    ws[col_name(COLUMN+4)+ str(r)].value = mean_squared_error(true_list, pred_list, squared=False)
-    ws[col_name(COLUMN+5) + str(r)].value =  mean_absolute_error(true_list, pred_list)
-    ws[col_name(COLUMN+6)+ str(r)].value = len(error_list)/100000
+    ws["A"+ str(r)].value = algo
+    ws["B"+ str(r)].value = sim
+    ws["C" + str(r)].value = sim_threshold
+    ws["D"+ str(r)].value = mean_squared_error(true_list, pred_list)
+    ws["E"+ str(r)].value = mean_squared_error(true_list, pred_list, squared=False)
+    ws["F" + str(r)].value =  mean_absolute_error(true_list, pred_list)
+    ws["G"+ str(r)].value = len(error_list)/100000
 
 
 
