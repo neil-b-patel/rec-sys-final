@@ -36,9 +36,8 @@ from sklearn.metrics import mean_absolute_error
 SIM_THRESHOLDS = [0, 0.3, 0.5, 0.7]
 SIM_WEIGHTING = [0, 25, 50]
 
-# haven't tested extensively, but we went with 0.5 b/c of
-# a nice blend of previous CBR results and novel recommendations
-HYBRID_WEIGHTING = 0.5
+# we went with 0.75 b/c of better accuracy metrics with LOOCV
+HYBRID_WEIGHTING = 0.75
 
 
 def from_file_to_2D(path, genrefile, itemfile):
@@ -384,7 +383,7 @@ def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, 
     return recs
 
 
-def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies,  movies2, ii_matrix, excluded, weighted=False):
+def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies,  movies2, ii_matrix, excluded):
     '''
     Calculates recommendations for a given user
 
@@ -397,7 +396,6 @@ def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, m
         -- movies2:
         -- ii_matrix:
         -- excluded:
-        -- weighted:
 
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples,
@@ -517,7 +515,7 @@ def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=1
     return recs
 
 
-def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=False):
+def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, movies2, ii_matrix, excluded):
     '''
     Calculates recommendations for a given user
 
@@ -531,7 +529,6 @@ def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, 
         -- movies2:
         -- ii_matrix:
         -- excluded:
-        -- weighted:
 
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples,
@@ -1315,7 +1312,7 @@ def main():
 
         elif file_io == 'LCVSIM' or file_io == 'lcvsim':
             print()
-            sub_cmd = input('Select Recommender: FE, TFIDF, HBR')
+            sub_cmd = input('Select Recommender (FE, TFIDF, HBR): ')
             try:
                 thissim = []
                 '''
