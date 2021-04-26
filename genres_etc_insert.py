@@ -693,7 +693,7 @@ def sim_pearson(prefs, p1, p2, sim_weighting=0):
         return 0
 
 
-def topMatches(prefs, person,n=100, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
+def topMatches(prefs, person,n=1682, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
     '''
     Returns the best matches for person from the prefs dictionary
 
@@ -761,7 +761,7 @@ def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGH
             print("%d%% complete" % (percent_complete))
 
         # Find the most similar items to this one
-        scores = topMatches(itemPrefs, item,100, similarity,
+        scores = topMatches(itemPrefs, item,1682, similarity,
                             sim_weighting, sim_threshold)
         result[item] = scores
 
@@ -790,6 +790,9 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
     recs = []
     userRatings = prefs[str(user)]
     copy_cosim = deepcopy(cosim_matrix)
+    print(len(ii_matrix))
+    print(len(ii_matrix[list(ii_matrix.keys())[0]]))
+    print(len(ii_matrix[list(ii_matrix.keys())[3]]))
 
     # iterate through cosim_matrix
     for i in range(1, len(copy_cosim) + 1):
@@ -840,7 +843,7 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
     print(sorted(recs, reverse=True)[:n])
 
 
-def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=True, n=15):
+def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=False, n=15):
     '''
     Calculates recommendations for a given user
 
@@ -886,6 +889,9 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
             # skip missing titles because there is no similarity
             if movies[str(j)] not in ii_matrix[excluded]:
                 continue
+            elif ii_matrix[excluded][movies[str(j)]] <= 0:
+                continue
+
 
             # replace with corresponding item-item similarity matrix value
             copy_cosim[int(movies2[excluded])-1][j-1] = ii_matrix[excluded][movies[str(j)]]
