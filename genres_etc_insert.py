@@ -20,7 +20,9 @@ https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.tex
 
 import numpy as np
 import pandas as pd
-import math, os, pickle
+import math
+import os
+import pickle
 from copy import deepcopy
 from math import sqrt
 from matplotlib import pyplot as plt
@@ -405,7 +407,6 @@ def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, m
            An empty list is returned when no recommendations have been calc'd.
     '''
 
-
     userRatings = prefs[str(user)]
 
     num = 0
@@ -432,7 +433,6 @@ def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, m
         return (num/denom, excluded)
 
     return (None, excluded)
-
 
 
 def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=15):
@@ -721,12 +721,12 @@ def topMatches(prefs, person, n=1682, similarity=sim_pearson, sim_weighting=0, s
         # took out score > sim_threshold here
         if other != person:
             scores.append((score, other))
-    scores = sorted(scores, reverse = True)
+    scores = sorted(scores, reverse=True)
     scores = scores[:n]
-    #print(scores)
+    # print(scores)
     for i in range(len(scores)):
         scores_dict[scores[i][1]] = scores[i][0]
-    #print(scores_dict)
+    # print(scores_dict)
     return scores_dict
 
 
@@ -785,9 +785,13 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
            List is sorted, high to low, by predicted rating.
            An empty list is returned when no recommendations have been calc'd.
     '''
+
     recs = []
     userRatings = prefs[str(user)]
     copy_cosim = deepcopy(cosim_matrix)
+    # print(len(ii_matrix))
+    # print(len(ii_matrix[list(ii_matrix.keys())[0]]))
+    # print(len(ii_matrix[list(ii_matrix.keys())[3]]))
 
     # iterate through cosim_matrix
     for i in range(1, len(copy_cosim) + 1):
@@ -797,7 +801,6 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
 
         num = 0
         denom = 0
-        # count = 0
 
         for j in range(1, len(copy_cosim) + 1):
             # neighbor movie has not been rated by the user
@@ -817,7 +820,6 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
 
                 # skip missing titles because there is no similarity
                 if movies[str(j)] not in ii_matrix[movies[str(i)]]:
-                    # print("No similarity found between the titles: {} and {}".format(movies[str(i)], movies[str(j)]))
                     continue
                 elif ii_matrix[movies[str(i)]][movies[str(j)]] <= 0:
                     continue
@@ -830,7 +832,6 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
 
             num += userRatings[movies[str(j)]] * copy_cosim[i-1][j-1]
             denom += copy_cosim[i-1][j-1]
-            # count += 1
 
         if num > 0 and denom > 0:
             recs.append((num/denom, movies[str(i)]))
@@ -849,7 +850,7 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
         -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
         -- movies:
         -- ii_matrix: pre-computed item-item matrix from a collaborative filtering
-        -- excluded: 
+        -- excluded:
         -- weighted: if true, repalce sim in cosim_matrix with ii_matrix weighted value
 
     Returns:
@@ -858,12 +859,13 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
            List is sorted, high to low, by predicted rating.
            An empty list is returned when no recommendations have been calc'd.
     '''
+
     userRatings = prefs[str(user)]
     copy_cosim = deepcopy(cosim_matrix)
-
+    
     num = 0
     denom = 0
-
+    
     # iterate through cosim_matrix
     for j in range(1, len(copy_cosim) + 1):
         # neighbor movie has not been rated by the user
@@ -885,6 +887,8 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
             # skip missing titles because there is no similarity
             if movies[str(j)] not in ii_matrix[excluded]:
                 continue
+            elif ii_matrix[excluded][movies[str(j)]] <= 0:
+                continue
 
             # replace with corresponding item-item similarity matrix value
             copy_cosim[int(movies2[excluded])-1][j-1] = ii_matrix[excluded][movies[str(j)]]
@@ -895,7 +899,6 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
 
         num += userRatings[movies[str(j)]] * copy_cosim[int(movies2[excluded])-1][j-1]
         denom += copy_cosim[int(movies2[excluded])-1][j-1]
-        # count += 1
 
     if num > 0 and denom > 0:
         return (num/denom, excluded)
@@ -915,7 +918,6 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies, sim_threshold, ws,
         -- sim_matrix: pre-computed similarity matrix
         -- itemsim:
         -- movies:
-
 
     Returns:
         -- error_total: MSE, or MAE, or RMSE totals for this set of conditions
@@ -946,9 +948,11 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies, sim_threshold, ws,
 
             # get recs for this item
             if weighted:
-                rec = algo(newPrefs, sim_matrix, i, sim_threshold, movies, newMovies, itemsim, out, weighted=weighted) 
+                rec = algo(newPrefs, sim_matrix, i, sim_threshold,
+                           movies, newMovies, itemsim, out, weighted=weighted)
             else:
-                rec = algo(newPrefs, sim_matrix, i, sim_threshold, movies, newMovies, itemsim, out)
+                rec = algo(newPrefs, sim_matrix, i, sim_threshold,
+                           movies, newMovies, itemsim, out)
             newPrefs[i][out] = save
 
             if rec[1] == out and rec[0] != None and rec[0] != 0:
@@ -971,19 +975,17 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies, sim_threshold, ws,
     print("Coverage: ", len(error_list))
     print("Coverage PCT: ", len(error_list)/100000)
 
-    #excel transfer
-    ws["A"+ str(r)].value = str(algo)[14:-15]
-    ws["B"+ str(r)].value = sim
+    # excel transfer
+    ws["A" + str(r)].value = str(algo)[14:-15]
+    ws["B" + str(r)].value = sim
     ws["C" + str(r)].value = sim_threshold
     ws["D" + str(r)].value = weighted
-    ws["E"+ str(r)].value = mean_squared_error(true_list, pred_list)
-    ws["F"+ str(r)].value = mean_squared_error(true_list, pred_list, squared=False)
-    ws["G" + str(r)].value =  mean_absolute_error(true_list, pred_list)
-    ws["H"+ str(r)].value = len(error_list)/100000
+    ws["E" + str(r)].value = mean_squared_error(true_list, pred_list)
+    ws["F" + str(r)].value = mean_squared_error(true_list, pred_list, squared=False)
+    ws["G" + str(r)].value = mean_absolute_error(true_list, pred_list)
+    ws["H" + str(r)].value = len(error_list)/100000
 
     return error_list
-
-
 
 
 def main():
@@ -995,9 +997,9 @@ def main():
     done = False
     cosim_matrix = []
     itemsim = {}
-    #open excel file in case writing from LCVSIM
+    # open excel file in case writing from LCVSIM
     dest = "CSC_381_ALS_Results.xlsx"
-    wb = load_workbook(filename = dest)
+    wb = load_workbook(filename=dest)
     ws = wb.create_sheet('results')
     row = 1
     while not done:
@@ -1271,7 +1273,7 @@ def main():
                     elif sub_cmd == 'WD' or sub_cmd == 'wd':
                         # transpose the U-I matrix and calc item-item similarities matrix
                         itemsim = calculateSimilarItems(
-                            prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING,sim_threshold=0)
+                            prefs, similarity=sim_distance, sim_weighting=SIM_WEIGHTING, sim_threshold=0)
                         # Dump/save dictionary to a pickle file
                         pickle.dump(itemsim, open(
                             "save_itemsim_distance.p", "wb"))
@@ -1280,7 +1282,7 @@ def main():
                     elif sub_cmd == 'WP' or sub_cmd == 'wp':
                         # transpose the U-I matrix and calc item-item similarities matrix
                         itemsim = calculateSimilarItems(
-                            prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGHTING,sim_threshold=0)
+                            prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGHTING, sim_threshold=0)
                         # Dump/save dictionary to a pickle file
                         pickle.dump(itemsim, open(
                             "save_itemsim_pearson.p", "wb"))
@@ -1355,12 +1357,13 @@ def main():
                     thissim = cosim_matrix
                     algo = get_TFIDF_recommendations_single
                 else:
-                    print ('Incorrect Command!')
+                    print('Incorrect Command!')
 
                 if len(prefs) > 0 and len(thissim) > 0:
                     # ask for hybrid weighting
                     if sub_cmd == 'HBR' or sub_cmd == 'hbr':
-                        weighting = input('Use weighting of {}? (T or F): '.format(HYBRID_WEIGHTING))
+                        weighting = input(
+                            'Use weighting of {}? (T or F): '.format(HYBRID_WEIGHTING))
                         if weighting == "T" or weighting == "t":
                             print("weighting selected")
                             weighting = True
@@ -1370,29 +1373,34 @@ def main():
 
                     # run HBR/FE with sim_threshold > 0
                     if sub_cmd == 'HBR' or sub_cmd == 'hbr':
-                        error_list = loo_cv_sim(prefs, sim_method, algo, thissim, othersim, movies, SIM_THRESHOLDS[0], ws, row, weighting)
+                        error_list = loo_cv_sim(
+                            prefs, sim_method, algo, thissim, othersim, movies, SIM_THRESHOLDS[0], ws, row, weighting)
                         row += 1
-                        print('len(SE list): %d, using %s' % (len(error_list), sim_method))
+                        print('len(SE list): %d, using %s' %
+                              (len(error_list), sim_method))
                         print()
                         wb.save(dest)
-                    elif sub_cmd == 'FE' or sub_cmd =='fe':
-                        error_list = loo_cv_sim(prefs, "", algo, thissim, othersim, movies, SIM_THRESHOLDS[0], ws, row)
+                    elif sub_cmd == 'FE' or sub_cmd == 'fe':
+                        error_list = loo_cv_sim(
+                            prefs, "", algo, thissim, othersim, movies, SIM_THRESHOLDS[0], ws, row)
                         row += 1
                         print('len(SE list): %d' % (len(error_list)))
                         print()
                         wb.save(dest)
                     elif sub_cmd == 'TFIDF' or sub_cmd == 'tfidf':
                         # run TFIDF with thresholds t in SIM_THRESHOLDS = [0, 0.3, 0.5, 0.7]
-                        print("TFIDF recognized. Running LCVSIM with all four similarity thresholds...")                        
+                        print(
+                            "TFIDF recognized. Running LCVSIM with all four similarity thresholds...")
                         for t in SIM_THRESHOLDS:
                             print("Running sim_threshold = {}".format(t))
-                            error_list = loo_cv_sim(prefs, "", algo, thissim, othersim, movies, t, ws, row)
+                            error_list = loo_cv_sim(
+                                prefs, "", algo, thissim, othersim, movies, t, ws, row)
                             row += 1
                             print('len(SE list): %d' % (len(error_list)))
                             print()
                             wb.save(dest)
                     else:
-                        print ('Incorrect Command!')
+                        print('Incorrect Command!')
                 else:
                     print('Empty dictionary, run R(ead) OR Empty Sim Matrix, run Sim!')
 
