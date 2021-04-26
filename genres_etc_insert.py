@@ -691,13 +691,14 @@ def sim_pearson(prefs, p1, p2, sim_weighting=0):
         return 0
 
 
-def topMatches(prefs, person, n=1682, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
+def topMatches(prefs, person, n=100, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
     '''
     Returns the best matches for person from the prefs dictionary
 
     Parameters:
         -- prefs: dictionary containing user-item matrix
         -- person: string containing name of user
+        -- n: 
         -- similarity: function to calc similarity [sim_pearson is default]
         -- sim_weighting: similarity significance weighting factor (0, 25, 50)
                           [default is 0, which represents No Weighting]
@@ -759,7 +760,7 @@ def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGH
             print("%d%% complete" % (percent_complete))
 
         # Find the most similar items to this one
-        scores = topMatches(itemPrefs, item, 1682, similarity,
+        scores = topMatches(itemPrefs, item, 100, similarity,
                             sim_weighting, sim_threshold)
         result[item] = scores
 
