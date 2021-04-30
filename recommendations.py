@@ -1014,7 +1014,7 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies, sim_threshold, ws,
     print("Coverage PCT: ", len(error_list)/100000)
 
     # pipeline results of LOOCV to Excel spreadsheet
-    # COMMENT OUT LINES 1016-1023 TO STOP EXCEL EXPORTS
+    # COMMENT OUT LINES 1018-1025 TO STOP EXCEL EXPORTS
     ws["A" + str(r)].value = str(algo)[14:-15]
     ws["B" + str(r)].value = sim
     ws["C" + str(r)].value = sim_threshold
