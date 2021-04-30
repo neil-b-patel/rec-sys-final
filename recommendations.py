@@ -1,7 +1,9 @@
 '''
-Create content-based recommenders: Feature Encoding, TF-IDF/CosineSim
-       using item/genre feature data
-
+1. Create content-based recommenders (Feature Encoding, TF-IDF/CosineSim
+       using item/genre feature data)
+2. Create hybrid recommenders: TF-IDF (base recommender), augment CosineSim matrix
+       using a pre-computed item-item similarity matrix
+3. Implement LOOCV and write trial parameters and results to Excel
 
 Programmer names: Joseph Brock, Jake Carver, Neil Patel, Annabel Winters-McCabe
 
@@ -15,9 +17,10 @@ https://kavita-ganesan.com/tfidftransformer-tfidfvectorizer-usage-differences/#.
 reference:
 https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.CountVectorizer.html
 
-
 '''
-
+#################
+##  LIBRARIES  ##
+#################
 import numpy as np
 import pandas as pd
 import math
@@ -33,16 +36,23 @@ from sklearn.metrics import mean_squared_error
 from sklearn.metrics import mean_absolute_error
 from openpyxl import load_workbook
 
+
+#################
+##  CONSTANTS  ##
+#################
 # accept all positive similarities > [i] for TF-IDF/ConsineSim Recommender
 SIM_THRESHOLDS = [0, 0.3, 0.5, 0.7]
 
 # we went with n/25 b/c of good mixture of accuracy and coverage from midterm results
 SIM_WEIGHTING = 25
 
-# we went with 0.75 b/c of better accuracy metrics with LOOCV
+# we went with 0.75 b/c of best accuracy metrics with LOOCV on Euclidean/Pearson
 HYBRID_WEIGHTING = 0.75
 
 
+####################
+##  HELPER FUNCS  ##
+####################
 def from_file_to_2D(path, genrefile, itemfile):
     '''
     Load feature matrix from specified file
@@ -82,7 +92,6 @@ def from_file_to_2D(path, genrefile, itemfile):
         print(len(movies))
         return {}
 
-    ##
     # Get movie genre from the genre file, place into genre dictionary indexed by genre index
     genres = {}  # key is genre index, value is the genre string
 
@@ -183,13 +192,22 @@ def from_file_to_dict(path, datafile, itemfile):
 
 
 def transformPrefs(prefs):
+    '''
+    Transposes U-I matrix (prefs dictionary)
+    
+    Parameters:
+        -- prefs: dictionary containing user-item matrix
+    
+    Returns:
+        -- A transposed U-I matrix, i.e., if prefs was a U-I matrix,
+           this function returns an I-U matrix
+    '''
+
     result = {}
     for person in prefs:
         for item in prefs[person]:
             result.setdefault(item, {})
-
-            # Flip item and person
-            result[item][person] = prefs[person][item]
+            result[item][person] = prefs[person][item]   # Flip item and person
     return result
 
 
@@ -290,6 +308,18 @@ def to_docs(features_str, genres):
     return feature_docs
 
 
+def movie_to_ID(movies):
+    ''' Converts movies mapping from "id to title" to "title to id" '''
+
+    movie_title_to_id = {}
+    for id in movies.keys():
+        movie_title_to_id[movies[id]] = id
+    return movie_title_to_id
+
+
+########################
+##  SIMILARITY FUNCS  ##  
+########################
 def cosine_sim(docs):
     '''
     Performs cosine sim calcs on features list, aka docs in TF-IDF world
@@ -325,274 +355,6 @@ def cosine_sim(docs):
     print()
 
     return cosim_matrix
-
-
-def movie_to_ID(movies):
-    ''' Converts movies mapping from "id to title" to "title to id" '''
-
-    movie_title_to_id = {}
-    for id in movies.keys():
-        movie_title_to_id[movies[id]] = id
-    return movie_title_to_id
-
-
-def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, n=15):
-    '''
-    Calculates recommendations for a given user
-
-    Parameters:
-        -- prefs: dictionary containing user-item matrix
-        -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
-        -- user: string containing name of user requesting recommendation
-        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
-        -- movies:
-        -- n:
-
-    Returns:
-        -- rankings: A list of recommended items with 0 or more tuples,
-           each tuple contains (predicted rating, item name).
-           List is sorted, high to low, by predicted rating.
-           An empty list is returned when no recommendations have been calc'd.
-    '''
-
-    recs = []
-    userRatings = prefs[str(user)]
-
-    for i in range(1, len(movies)+1):
-        if movies[str(i)] in userRatings:
-            continue
-
-        num = 0
-        denom = 0
-
-        for j in range(1, len(movies) + 1):
-            if movies[str(j)] not in userRatings:
-                continue
-
-            if i == j:
-                continue
-
-            if cosim_matrix[i-1][j-1] < sim_threshold:
-                continue
-
-            num += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
-            denom += cosim_matrix[i-1][j-1]
-
-        if num > 0 and denom > 0:
-            recs.append((num/denom, movies[str(i)]))
-
-    print(sorted(recs, reverse=True)[:n])
-
-    return recs
-
-
-def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies,  movies2, ii_matrix, excluded):
-    '''
-    Calculates recommendations for a given user
-
-    Parameters:
-        -- prefs: dictionary containing user-item matrix
-        -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
-        -- user: string containing name of user requesting recommendation
-        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
-        -- movies:
-        -- movies2:
-        -- ii_matrix:
-        -- excluded:
-
-    Returns:
-        -- rankings: A list of recommended items with 0 or more tuples,
-           each tuple contains (predicted rating, item name).
-           List is sorted, high to low, by predicted rating.
-           An empty list is returned when no recommendations have been calc'd.
-    '''
-
-    userRatings = prefs[str(user)]
-
-    num = 0
-    denom = 0
-    count = 0
-
-    for j in range(1, len(movies) + 1):
-        if movies[str(j)] not in userRatings:
-            continue
-
-        if int(movies2[excluded]) == j:
-            continue
-
-        if cosim_matrix[int(movies2[excluded])-1][j-1] < sim_threshold:
-            continue
-
-        num += userRatings[movies[str(j)]] * \
-            cosim_matrix[int(movies2[excluded])-1][j-1]
-        denom += cosim_matrix[int(movies2[excluded])-1][j-1]
-        count += 1
-
-    # both?
-    if num > 0 and denom > 0:
-        return (num/denom, excluded)
-
-    return (None, excluded)
-
-
-def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=15):
-    '''
-    Calculates recommendations for a given user
-
-    Parameters:
-        -- prefs: dictionary containing user-item matrix
-        -- features: an np.array whose height is based on number of items
-                     and width equals the number of unique features (e.g., genre)
-        -- movie_title_to_id: dictionary that maps movie title to movieid
-        -- movies: dictionary that maps movieid to movie title
-        -- user: string containing name of user requesting recommendation
-        -- n:
-
-    Returns:
-        -- rankings: A list of recommended items with 0 or more tuples,
-           each tuple contains (predicted rating, item name).
-           List is sorted, high to low, by predicted rating.
-           An empty list is returned when no recommendations have been calc'd.
-
-    '''
-
-    # generate set of total possible ids
-    total_ids = list(range(0, len(features)))
-    total_set = set(total_ids)
-
-    feature_preference = np.copy(features)
-
-    # transform features into the feature_preference matrix
-    feature_preference = feature_preference.astype('float64')
-    rated = set()
-    for movie in prefs[user]:
-        id = (int)(movie_title_to_id[movie])-1
-        feature_preference[id] *= prefs[user][movie]
-        rated.add(id)
-
-    # set subtraction to pull out unrated items
-    unrated_ids = total_set.difference(rated)
-
-    # set unrated rows to 0s
-    for id in unrated_ids:
-        feature_preference[id] *= 0
-
-    # take column wise sum, overall sum, and normalized vector
-    col_sums = np.sum(feature_preference, axis=0)
-    overall_sum = np.sum(feature_preference)
-    norm_vector = col_sums/overall_sum
-
-    recs = []
-
-    # for each unrated item
-    for id in unrated_ids:
-        # multiply features row for item by normalized vector
-        norm_weight = features[id]*norm_vector
-        norm_sum = np.sum(norm_weight)
-
-        # avoid divide by 0 error
-        if norm_sum == 0:
-            continue
-        norm_weight = norm_weight/norm_sum
-
-        # get nonzero count
-        nonzero_count = np.count_nonzero(feature_preference, axis=0)
-
-        # get vector of averages, pass over divide by 0
-        avgs = col_sums/nonzero_count
-
-        # remove irrelevant features
-        avgs *= features[id].astype('float64')
-        weight_avg = avgs*norm_weight
-        final_rec = np.nansum(weight_avg)
-        recs.append((final_rec, movies[str(id+1)]))
-
-        # sort high to low
-        recs = sorted(recs, reverse=True)
-
-        # only return 10
-        if len(recs) > 10:
-            recs = recs[:n]
-
-    return recs
-
-
-def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, movies2, ii_matrix, excluded):
-    '''
-    Calculates recommendations for a given user
-
-    Parameters:
-        -- prefs: dictionary containing user-item matrix
-        -- features: an np.array whose height is based on number of items
-                     and width equals the number of unique features (e.g., genre)
-        -- user: string containing name of user requesting recommendation
-        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
-        -- movies:
-        -- movies2:
-        -- ii_matrix:
-        -- excluded:
-
-    Returns:
-        -- rankings: A list of recommended items with 0 or more tuples,
-           each tuple contains (predicted rating, item name).
-           List is sorted, high to low, by predicted rating.
-           An empty list is returned when no recommendations have been calc'd.
-
-    '''
-
-    # generate set of total possible ids
-    total_ids = list(range(0, len(features)))
-    total_set = set(total_ids)
-
-    feature_preference = np.copy(features)
-
-    # transform features into the feature_preference matrix
-    feature_preference = feature_preference.astype('float64')
-    rated = set()
-    for movie in prefs[user]:
-        id = (int)(movies2[movie])-1
-        feature_preference[id] *= prefs[user][movie]
-        rated.add(id)
-
-    # set subtraction to pull out unrated items
-    unrated_ids = total_set.difference(rated)
-
-    # set unrated rows to 0s
-    for id in unrated_ids:
-        feature_preference[id] *= 0
-
-    # take column wise sum, overall sum, and normalized vector
-    col_sums = np.sum(feature_preference, axis=0)
-    overall_sum = np.sum(feature_preference)
-    norm_vector = col_sums/overall_sum
-
-    rec = None
-
-    # multiply features row for item by normalized vector
-    norm_weight = features[int(movies2[excluded])-1]*norm_vector
-    norm_sum = np.sum(norm_weight)
-
-    # Is this correct?
-    if norm_sum == 0:
-        return (None, excluded)
-    try:
-        norm_weight = norm_weight/norm_sum
-
-        # get nonzero count
-        nonzero_count = np.count_nonzero(feature_preference, axis=0)
-
-        # get vector of averages, pass over divide by 0
-        avgs = col_sums/nonzero_count
-
-        # remove irrelevant features
-        avgs *= features[int(movies2[excluded])-1].astype('float64')
-        weight_avg = avgs*norm_weight
-        final_rec = np.nansum(weight_avg)
-        rec = (final_rec, excluded)
-    except:
-        return (None, excluded)
-
-    return rec
 
 
 def sim_distance(prefs, p1, p2, sim_weighting=0):
@@ -691,80 +453,142 @@ def sim_pearson(prefs, p1, p2, sim_weighting=0):
         return 0
 
 
-def topMatches(prefs, person, n=100, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
+##########################
+##  TOP-N RECOMMENDERS  ##
+##########################
+def get_TFIDF_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, n=15):
     '''
-    Returns the best matches for person from the prefs dictionary
+    Calculates recommendations for a given user
 
     Parameters:
         -- prefs: dictionary containing user-item matrix
-        -- person: string containing name of user
-        -- n: 
-        -- similarity: function to calc similarity [sim_pearson is default]
-        -- sim_weighting: similarity significance weighting factor (0, 25, 50)
-                          [default is 0, which represents No Weighting]
+        -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
+        -- user: string containing name of user requesting recommendation
         -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+        -- movies: dictionary that maps movieid to movie title
+        -- n: number of recommendations to print
 
     Returns:
-        -- A list of similar matches with 0 or more tuples,
-           each tuple contains (similarity, item name).
-           List is sorted, high to low, by similarity.
-           An empty list is returned when no matches have been calc'd.
+        -- rankings: A list of recommended items with 0 or more tuples,
+           each tuple contains (predicted rating, item name).
+           List is sorted, high to low, by predicted rating.
+           An empty list is returned when no recommendations have been calc'd.
     '''
 
-    scores = []
-    scores_dict = {}
-    # iterate through users in prefs
-    for other in prefs:
-        # calculate similarity score
-        score = similarity(prefs, person, other, sim_weighting)
+    recs = []
+    userRatings = prefs[str(user)]
 
-        # don't compare me to myself, accept scores above the threshold
-        # took out score > sim_threshold here
-        if other != person:
-            scores.append((score, other))
-    scores = sorted(scores, reverse=True)
-    scores = scores[:n]
-    # print(scores)
-    for i in range(len(scores)):
-        scores_dict[scores[i][1]] = scores[i][0]
-    # print(scores_dict)
-    return scores_dict
+    # iterate through cosim_matrix
+    for i in range(1, len(movies)+1):
+        # movie is already rated by user
+        if movies[str(i)] in userRatings:
+            continue
+
+        num = 0
+        denom = 0
+
+        for j in range(1, len(movies) + 1):
+            # neighbor movie has not been rated by the user
+            if movies[str(j)] not in userRatings:
+                continue
+
+            # do not compare self to self
+            if i == j:
+                continue
+
+            # does not meet similarity threshold
+            if cosim_matrix[i-1][j-1] < sim_threshold:
+                continue
+
+            num += userRatings[movies[str(j)]]*cosim_matrix[i-1][j-1]
+            denom += cosim_matrix[i-1][j-1]
+
+        if num > 0 and denom > 0:
+            recs.append((num/denom, movies[str(i)]))
+
+    print(sorted(recs, reverse=True)[:n])
+    return recs
 
 
-def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGHTING, sim_threshold=0):
+def get_FE_recommendations(prefs, features, movie_title_to_id, movies, user, n=15):
     '''
-    Creates a dictionary of items showing which other items they are most similar to.
+    Calculates recommendations for a given user
 
     Parameters:
         -- prefs: dictionary containing user-item matrix
-        -- similarity: function to calc similarity (sim_pearson is default)
-        -- sim_weighting: similarity significance weighting factor (0, 25, 50)
-                          [default is 0, which represents No Weighting]
-        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+        -- features: np.array whose height is based on number of items
+                     and width equals the number of unique features (e.g., genre)
+        -- movie_title_to_id: dictionary that maps movie title to movieid
+        -- movies: dictionary that maps movieid to movie title
+        -- user: string containing name of user requesting recommendation
+        -- n: number of recommendations to return if greater than 10
 
     Returns:
-        -- A dictionary with a similarity matrix
+        -- rankings: A list of recommended items with 0 or more tuples,
+           each tuple contains (predicted rating, item name).
+           List is sorted, high to low, by predicted rating.
+           An empty list is returned when no recommendations have been calc'd.
+
     '''
 
-    result = {}
-    c = 0
+    # generate set of total possible ids
+    total_ids = list(range(0, len(features)))
+    total_set = set(total_ids)
 
-    # Invert the preference matrix to be item-centric
-    itemPrefs = transformPrefs(prefs)
+    feature_preference = np.copy(features)
 
-    for item in itemPrefs:
-      # Status updates for larger datasets
-        c += 1
-        if c % 100 == 0:
-            percent_complete = (100*c)/len(itemPrefs)
-            print("%d%% complete" % (percent_complete))
+    # transform features into the feature_preference matrix
+    feature_preference = feature_preference.astype('float64')
+    rated = set()
+    for movie in prefs[user]:
+        id = (int)(movie_title_to_id[movie])-1
+        feature_preference[id] *= prefs[user][movie]
+        rated.add(id)
 
-        # Find the most similar items to this one
-        scores = topMatches(itemPrefs, item, 100, similarity,
-                            sim_weighting, sim_threshold)
-        result[item] = scores
+    # set subtraction to pull out unrated items
+    unrated_ids = total_set.difference(rated)
 
-    return result
+    # set unrated rows to 0s
+    for id in unrated_ids:
+        feature_preference[id] *= 0
+
+    # take column wise sum, overall sum, and normalized vector
+    col_sums = np.sum(feature_preference, axis=0)
+    overall_sum = np.sum(feature_preference)
+    norm_vector = col_sums/overall_sum
+
+    recs = []
+
+    # for each unrated item
+    for id in unrated_ids:
+        # multiply features row for item by normalized vector
+        norm_weight = features[id]*norm_vector
+        norm_sum = np.sum(norm_weight)
+
+        # avoid divide by 0 error
+        if norm_sum == 0:
+            continue
+        norm_weight = norm_weight/norm_sum
+
+        # get nonzero count
+        nonzero_count = np.count_nonzero(feature_preference, axis=0)
+
+        # get vector of averages, pass over divide by 0
+        avgs = col_sums/nonzero_count
+
+        # remove irrelevant features
+        avgs *= features[id].astype('float64')
+        weight_avg = avgs*norm_weight
+        final_rec = np.nansum(weight_avg)
+        recs.append((final_rec, movies[str(id+1)]))
+
+        # sort high to low
+        recs = sorted(recs, reverse=True)
+
+        if len(recs) > 10:
+            recs = recs[:n]
+
+    return recs
 
 
 def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies, ii_matrix, weighted=False, n=15):
@@ -776,9 +600,10 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
         -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
         -- user: string containing name of user requesting recommendation
         -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
-        -- movies:
+        -- movies: dictionary mapping movieid to movie title
         -- ii_matrix: pre-computed item-item matrix from a collaborative filtering
-        -- weighted: if true, repalce sim in cosim_matrix with ii_matrix weighted value
+        -- weighted: if true, replace sim in cosim_matrix with ii_value times HYBRID_WEIGHT
+        -- n: number of recommendations to print
 
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples,
@@ -790,9 +615,6 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
     recs = []
     userRatings = prefs[str(user)]
     copy_cosim = deepcopy(cosim_matrix)
-    # print(len(ii_matrix))
-    # print(len(ii_matrix[list(ii_matrix.keys())[0]]))
-    # print(len(ii_matrix[list(ii_matrix.keys())[3]]))
 
     # iterate through cosim_matrix
     for i in range(1, len(copy_cosim) + 1):
@@ -838,6 +660,215 @@ def get_hybrid_recommendations(prefs, cosim_matrix, user, sim_threshold, movies,
             recs.append((num/denom, movies[str(i)]))
 
     print(sorted(recs, reverse=True)[:n])
+    return recs
+
+
+def topMatches(prefs, person, n=100, similarity=sim_pearson, sim_weighting=0, sim_threshold=0):
+    '''
+    Returns the best matches for person from the prefs dictionary
+
+    Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- person: string containing name of user
+        -- n: number of recommendations to return
+        -- similarity: function to calc similarity [sim_pearson is default]
+        -- sim_weighting: similarity significance weighting factor (0, 25, 50)
+                          [default is 0, which represents No Weighting]
+        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+
+    Returns:
+        -- A list of similar matches with 0 or more tuples,
+           each tuple contains (similarity, item name).
+           List is sorted, high to low, by similarity.
+           An empty list is returned when no matches have been calc'd.
+    '''
+
+    scores = []
+    scores_dict = {}
+
+    # iterate through users in prefs
+    for other in prefs:
+        # calculate similarity score
+        score = similarity(prefs, person, other, sim_weighting)
+
+        # don't compare me to myself, accept scores above the threshold
+        if other != person:
+            scores.append((score, other))
+
+    scores = sorted(scores, reverse=True)
+    scores = scores[:n]
+
+    for i in range(len(scores)):
+        scores_dict[scores[i][1]] = scores[i][0]
+
+    return scores_dict
+
+
+def calculateSimilarItems(prefs, similarity=sim_pearson, sim_weighting=SIM_WEIGHTING, sim_threshold=0):
+    '''
+    Creates a dictionary of items showing which other items they are most similar to.
+
+    Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- similarity: function to calc similarity (sim_pearson is default)
+        -- sim_weighting: similarity significance weighting factor (0, 25, 50)
+                          [default is 0, which represents No Weighting]
+        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+
+    Returns:
+        -- A dictionary with a similarity matrix
+    '''
+
+    result = {}
+    c = 0
+
+    # Invert the preference matrix to be item-centric
+    itemPrefs = transformPrefs(prefs)
+
+    for item in itemPrefs:
+      # Status updates for larger datasets
+        c += 1
+        if c % 100 == 0:
+            percent_complete = (100*c)/len(itemPrefs)
+            print("%d%% complete" % (percent_complete))
+
+        # Find the most similar items to this one
+        scores = topMatches(itemPrefs, item, 100, similarity,
+                            sim_weighting, sim_threshold)
+        result[item] = scores
+
+    return result
+
+
+###########################
+##  SINGLE RECOMMENDERS  ##
+###########################
+def get_TFIDF_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies, movies2, ii_matrix, excluded):
+    '''
+    Calculates recommendations for a given user
+
+    Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
+        -- user: string containing name of user requesting recommendation
+        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+        -- movies: dictionary mapping movieid to movie title
+        -- movies2: dictionary that maps movie title to movieid
+        -- ii_matrix: pre-computed item-item matrix from a collaborative filtering
+        -- excluded: string of the item "left out" by LOOCV
+
+    Returns:
+        -- rankings: A list of recommended items with 0 or more tuples,
+           each tuple contains (predicted rating, item name).
+           List is sorted, high to low, by predicted rating.
+           An empty list is returned when no recommendations have been calc'd.
+    '''
+
+    userRatings = prefs[str(user)]
+
+    num = 0
+    denom = 0
+
+    # iterate through cosim_matrix
+    for j in range(1, len(movies) + 1):
+        # movie is already rated by user
+        if movies[str(j)] not in userRatings:
+            continue
+
+         # do not compare self to self
+        if int(movies2[excluded]) == j:
+            continue
+
+        # does not meet similarity threshold
+        if cosim_matrix[int(movies2[excluded])-1][j-1] < sim_threshold:
+            continue
+
+        num += userRatings[movies[str(j)]] * \
+            cosim_matrix[int(movies2[excluded])-1][j-1]
+        denom += cosim_matrix[int(movies2[excluded])-1][j-1]
+
+    if num > 0 and denom > 0:
+        return (num/denom, excluded)
+
+    return (None, excluded)
+
+
+def get_FE_recommendations_single(prefs, features, user, sim_threshold, movies, movies2, ii_matrix, excluded):
+    '''
+    Calculates recommendations for a given user
+
+    Parameters:
+        -- prefs: dictionary containing user-item matrix
+        -- features: an np.array whose height is based on number of items
+                     and width equals the number of unique features (e.g., genre)
+        -- user: string containing name of user requesting recommendation
+        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+        -- movies: dictionary mapping movieid to movie title
+        -- movies2: dictionary that maps movie title to movieid
+        -- ii_matrix: pre-computed item-item matrix from a collaborative filtering
+        -- excluded: string of the item "left out" by LOOCV
+
+    Returns:
+        -- rankings: A list of recommended items with 0 or more tuples,
+           each tuple contains (predicted rating, item name).
+           List is sorted, high to low, by predicted rating.
+           An empty list is returned when no recommendations have been calc'd.
+
+    '''
+
+    # generate set of total possible ids
+    total_ids = list(range(0, len(features)))
+    total_set = set(total_ids)
+
+    feature_preference = np.copy(features)
+
+    # transform features into the feature_preference matrix
+    feature_preference = feature_preference.astype('float64')
+    rated = set()
+    for movie in prefs[user]:
+        id = (int)(movies2[movie])-1
+        feature_preference[id] *= prefs[user][movie]
+        rated.add(id)
+
+    # set subtraction to pull out unrated items
+    unrated_ids = total_set.difference(rated)
+
+    # set unrated rows to 0s
+    for id in unrated_ids:
+        feature_preference[id] *= 0
+
+    # take column wise sum, overall sum, and normalized vector
+    col_sums = np.sum(feature_preference, axis=0)
+    overall_sum = np.sum(feature_preference)
+    norm_vector = col_sums/overall_sum
+
+    rec = None
+
+    # multiply features row for item by normalized vector
+    norm_weight = features[int(movies2[excluded])-1]*norm_vector
+    norm_sum = np.sum(norm_weight)
+
+    if norm_sum == 0:
+        return (None, excluded)
+    try:
+        norm_weight = norm_weight/norm_sum
+
+        # get nonzero count
+        nonzero_count = np.count_nonzero(feature_preference, axis=0)
+
+        # get vector of averages, pass over divide by 0
+        avgs = col_sums/nonzero_count
+
+        # remove irrelevant features
+        avgs *= features[int(movies2[excluded])-1].astype('float64')
+        weight_avg = avgs*norm_weight
+        final_rec = np.nansum(weight_avg)
+        rec = (final_rec, excluded)
+
+    except:
+        return (None, excluded)
+
+    return rec
 
 
 def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, movies, movies2, ii_matrix, excluded, weighted=True):
@@ -849,10 +880,10 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
         -- cosim_matrix: list containing item_feature-item_feature cosine similarity matrix
         -- user: string containing name of user requesting recommendation
         -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
-        -- movies:
+        -- movies: dictionary mapping movieid to movie title
         -- ii_matrix: pre-computed item-item matrix from a collaborative filtering
-        -- excluded:
-        -- weighted: if true, repalce sim in cosim_matrix with ii_matrix weighted value
+        -- excluded: string of the item "left out" by LOOCV
+        -- weighted: if true, replace sim in cosim_matrix with ii_value times HYBRID_WEIGHT
 
     Returns:
         -- rankings: A list of recommended items with 0 or more tuples,
@@ -874,7 +905,6 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
             continue
 
         # do not compare self to self
-        # excluded as string or int?
         if int(movies2[excluded]) == j:
             continue
 
@@ -904,21 +934,27 @@ def get_hybrid_recommendations_single(prefs, cosim_matrix, user, sim_threshold, 
     if num > 0 and denom > 0:
         return (num/denom, excluded)
 
-    # Is this correct?
     return (None, excluded)
 
 
+######################################
+##  LEAVE-ONE-OUT-CROSS-VALIDATION  ## 
+######################################
 def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies, sim_threshold, ws, r, weighted=False):
     """
-    Leave-One_Out Evaluation: evaluates recommender system ACCURACY
+    Leave-One-Out-Cross-Evaluation: evaluates recommender system ACCURACY
 
     Parameters:
         -- prefs dataset: critics, etc.sim
         -- sim: distance, pearson, etc.
         -- algo: user-based recommender, item-based recommender, etc.
         -- sim_matrix: pre-computed similarity matrix
-        -- itemsim:
-        -- movies:
+        -- itemsim: 
+        -- movies: dictionary mapping movieid to movie title
+        -- sim_threshold: float that determines the minimum similarity to be a "neighbor"
+        -- ws: Excel worksheet object
+        -- r: row index in Excel worksheet
+        -- weighted: if true, replace sim in cosim_matrix with ii_value times HYBRID_WEIGHT
 
     Returns:
         -- error_total: MSE, or MAE, or RMSE totals for this set of conditions
@@ -970,13 +1006,15 @@ def loo_cv_sim(prefs, sim, algo, sim_matrix, itemsim, movies, sim_threshold, ws,
             print("User Num: ", count)
         count += 1
 
+    # print results of LOOCV
     print('MSE: ', mean_squared_error(true_list, pred_list))
     print('MAE: ', mean_absolute_error(true_list, pred_list))
     print("RMSE: ", mean_squared_error(true_list, pred_list, squared=False))
     print("Coverage: ", len(error_list))
     print("Coverage PCT: ", len(error_list)/100000)
 
-    # excel transfer
+    # pipeline results of LOOCV to Excel spreadsheet
+    # COMMENT OUT LINES 1016-1023 TO STOP EXCEL EXPORTS
     ws["A" + str(r)].value = str(algo)[14:-15]
     ws["B" + str(r)].value = sim
     ws["C" + str(r)].value = sim_threshold
