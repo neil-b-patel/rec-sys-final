@@ -7,7 +7,7 @@
 - Annabel Winters-McCabe '21
 
 ## Introduction
-Hi! We are a group of Davidson College students researching Recommender Systems. The purpose of our work is to compare and contrast different recommender system algorithms, including user-based and item-based collaborative filtering, term frequency - inverse document frequency (TF-IDF), feature encoding (FE), matrix factorization methods with stochastic gradient descent (MF-SGD) and alternating-least-squares (MF-ALS), and a hybrid recommender algorithm (HBR) using accuracy and coverage as our metrics for comparison. Our experiments were primarily conducted using the MovieLens 100-K dataset, which holds "100000 movie ratings by 943 users on 1682 movies." [1]
+Hi! We are a group of Davidson College students researching Recommender Systems. The purpose of our work is to compare and contrast different recommender system algorithms, including user-based and item-based collaborative filtering, term frequency - inverse document frequency (TF-IDF), feature encoding (FE), matrix factorization methods with stochastic gradient descent (MF-SGD) and alternating-least-squares (MF-ALS), and a hybrid recommender algorithm (HBR) using accuracy and coverage as our metrics for comparison. Our experiments were primarily conducted using the MovieLens 100-K dataset, which holds "100000 movie ratings by 943 users on 1682 movies."[1] You can read more about our motivations, experimental design, results, and conclusion under 'Final Paper'.pdf, or try to replicate our process using the instructions below!
 
 ## How to Use
 1. Clone the GitHub Repo @ https://github.com/nepatel/rec-sys-final.git
